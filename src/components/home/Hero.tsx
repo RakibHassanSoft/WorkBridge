@@ -51,8 +51,8 @@ export default function Hero() {
           <p className="mx-auto mt-7 max-w-[640px] text-[17px] leading-relaxed text-ink-3 sm:text-[18.5px]">
             <T
               v={{
-                en: "A business posts a real problem. Our AI scopes it into small, priced, supervised tasks. Matched students deliver, a mentor and the client both sign off — and that signed-off work becomes a record no CV can fake.",
-                bn: "একটি ব্যবসা বাস্তব সমস্যা পোস্ট করে। আমাদের এআই সেটাকে ছোট, নির্ধারিত দামের, সুপারভাইজড টাস্কে ভাগ করে। ম্যাচ করা শিক্ষার্থীরা কাজ করেন, মেন্টর ও ক্লায়েন্ট দুজনেই সাইন-অফ করেন — আর সেই সাইন-অফ করা কাজই এমন এক রেকর্ড, যা কোনো সিভি নকল করতে পারে না।",
+                en: "A business posts a real problem. Our AI prices it and writes a short trial of the same work. Students apply by doing that trial, a coordinator picks one, and the finished job is signed off by a coordinator and the client — a record no CV can fake.",
+                bn: "একটি ব্যবসা বাস্তব সমস্যা পোস্ট করে। আমাদের এআই তার দাম ঠিক করে আর একই কাজের একটি ছোট ট্রায়াল লেখে। শিক্ষার্থীরা সেই ট্রায়াল করেই আবেদন করেন, একজন কোঅর্ডিনেটর একজনকে বেছে নেন, আর শেষ হওয়া কাজে মেন্টর ও ক্লায়েন্ট দুজনেই সাইন-অফ করেন — এমন এক রেকর্ড, যা কোনো সিভি নকল করতে পারে না।",
               }}
             />
           </p>

@@ -1,0 +1,398 @@
+// WorkBridge — Prisma schema
+// Designed to mirror the frontend src/data/types.ts so the API and the UI
+// speak the same shapes. One User table with a role; role-specific data lives
+// in ClientProfile / StudentProfile. Moderators need no extra profile.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum Role {
+  CLIENT
+  STUDENT
+  MODERATOR
+}
+
+enum JobStatus {
+  DRAFT // client wrote it, AI not run yet
+  SCOPING // AI produced a scope, awaiting moderator scope review
+  MATCHING // approved + funded, trial live, students applying
+  ACTIVE // a student was selected, main task in progress
+  REVIEW // work submitted, awaiting scoring / sign-off
+  DELIVERED // signed off and paid
+  CANCELLED
+}
+
+enum TaskStatus {
+  OPEN
+  MATCHING
+  IN_PROGRESS
+  IN_REVIEW
+  REVISION
+  APPROVED
+  CANCELLED
+}
+
+enum TaskLevel {
+  MICRO
+  STANDARD
+  ADVANCED
+}
+
+enum PayStatus {
+  AWAITING // funding link sent, not yet deposited
+  HELD // in escrow
+  RELEASED // paid to student
+  REFUNDED // returned to client
+  FAILED
+}
+
+enum TrialCheckStatus {
+  AWAITING_CLIENT
+  APPROVED
+  CHANGES_ASKED
+}
+
+enum TrialOutcome {
+  PENDING
+  SHORTLISTED
+  NOT_SHORTLISTED
+  SELECTED
+}
+
+enum KycKind {
+  STUDENT
+  CLIENT
+}
+
+enum KycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  RESUBMIT
+}
+
+enum DisputeStatus {
+  OPEN
+  EVIDENCE
+  RESOLVED
+}
+
+enum DisputeParty {
+  CLIENT
+  STUDENT
+}
+
+enum TicketStatus {
+  NEW
+  ANSWERED
+  CLOSED
+}
+
+enum TicketPriority {
+  HIGH
+  NORMAL
+}
+
+// ─────────────────────────── Core users ───────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      Role
+  name      String
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientProfile  ClientProfile?
+  studentProfile StudentProfile?
+
+  // relations (populated across phases)
+  jobs            Job[]           @relation("ClientJobs")
+  payments        Payment[]       @relation("ClientPayments")
+  paymentMethods  PaymentMethod[]
+  assignedTasks   Task[]          @relation("TaskAssignee")
+  trialAttempts   TrialAttempt[]
+  points          PointEntry[]
+  evaluations     Evaluation[]    @relation("StudentEvaluations")
+  reviewedEvals   Evaluation[]    @relation("ReviewerEvaluations")
+  kycSubmissions  KycSubmission[] @relation("KycSubject")
+  chatMessages    ChatMessage[]
+  supportTickets  SupportTicket[]
+  disputesRaised  Dispute[]       @relation("DisputeRaisedBy")
+}
+
+model ClientProfile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String
+  industry     String?
+  size         String?
+  city         String?
+}
+
+model StudentProfile {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university String?
+  discipline String?
+  year       String?
+  city       String?
+  skills     String[]  @default([])
+  bio        String?
+  rating     Float     @default(0)
+  onTime     Int       @default(0)
+  kycStatus  KycStatus @default(PENDING)
+}
+
+// ─────────────────────────── Sectors ───────────────────────────
+
+model Sector {
+  id        String  @id
+  name      String
+  tagline   String?
+  rateFloor Int     @default(0) // fair-price floor (per hour), enforced server-side
+  jobs      Job[]
+  tasks     Task[]
+}
+
+// ─────────────────────────── Jobs & tasks ───────────────────────────
+
+model Job {
+  id          String    @id @default(cuid())
+  ref         String    @unique
+  clientId    String
+  client      User      @relation("ClientJobs", fields: [clientId], references: [id])
+  title       String
+  brief       String
+  sectorId    String?
+  sector      Sector?   @relation(fields: [sectorId], references: [id])
+  budget        Int       @default(0)
+  status        JobStatus @default(DRAFT)
+  scopeApproved Boolean   @default(false) // moderator released the AI scope
+
+  // AI scope (produced by the scoping engine; a draft until a moderator releases it)
+  aiSummary      String?
+  aiComplexity   String?
+  aiConfidence   Float?
+  aiEstHours     Int?
+  aiSuggestedFee Int?
+  aiRisks        String[] @default([])
+  aiSkills       String[] @default([])
+
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Task {
+  id         String     @id @default(cuid())
+  jobId      String
+  job        Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  seq        Int        @default(1)
+  title      String
+  desc       String
+  sectorId   String?
+  sector     Sector?    @relation(fields: [sectorId], references: [id])
+  fee        Int        @default(0)
+  hours      Int        @default(0)
+  level      TaskLevel  @default(STANDARD)
+  skills     String[]   @default([])
+  status     TaskStatus @default(OPEN)
+  progress   Int        @default(0)
+  acceptance String[]   @default([])
+
+  // main-task submission (student -> review)
+  submissionNote String?
+  submittedAt    DateTime?
+
+  assigneeId String?
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  trial       Trial?
+  trialCheck  TrialCheck?
+  attempts    TrialAttempt[]
+  payment     Payment?
+  evaluation  Evaluation?
+  points      PointEntry[]
+  chat        ChatMessage[]
+  dispute     Dispute?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────── Trials & points ───────────────────────────
+
+model Trial {
+  id         String   @id @default(cuid())
+  taskId     String   @unique
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title      String
+  brief      String
+  mirrors    String?
+  minutes    Int      @default(30)
+  acceptance String[] @default([])
+  aiNote     String?
+  createdAt  DateTime @default(now())
+}
+
+// The client's check that the AI-built trial really mirrors their work.
+model TrialCheck {
+  id          String           @id @default(cuid())
+  taskId      String           @unique
+  task        Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  status      TrialCheckStatus @default(AWAITING_CLIENT)
+  clientNote  String?
+  decidedAt   DateTime?
+  createdAt   DateTime         @default(now())
+}
+
+model TrialAttempt {
+  id            String       @id @default(cuid())
+  taskId        String
+  task          Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User         @relation(fields: [studentId], references: [id])
+  minutesTaken  Int          @default(0)
+  summary       String?
+  aiScore       Int          @default(0) // 0..100
+  aiVerdict     String? // public reasoning
+  aiCoaching    String? // private, student-only
+  rank          Int          @default(0)
+  outcome       TrialOutcome @default(PENDING)
+  points        Int          @default(0) // +1 / 0 / -1 (mirror on selection/delivery)
+  pointsReason  String?
+  submittedAt   DateTime     @default(now())
+
+  @@unique([taskId, studentId])
+}
+
+model PointEntry {
+  id        String   @id @default(cuid())
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id])
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  delta     Int // +1 tried-not-selected, 0 selected+delivered, -1 selected+failed
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────── Payments / escrow ───────────────────────────
+
+model Payment {
+  id        String    @id @default(cuid())
+  taskId    String    @unique
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    User      @relation("ClientPayments", fields: [clientId], references: [id])
+  amount    Int
+  method    String?
+  status    PayStatus @default(AWAITING)
+  note      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model PaymentMethod {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  kind      String // bkash | nagad | bank | card
+  label     String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────── Evaluation / sign-off ───────────────────────────
+
+model Evaluation {
+  id           String   @id @default(cuid())
+  taskId       String   @unique
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User     @relation("StudentEvaluations", fields: [studentId], references: [id])
+  reviewerId   String
+  reviewer     User     @relation("ReviewerEvaluations", fields: [reviewerId], references: [id])
+  scores       Json // [{ dim, score, max }]
+  reviewerNote String?
+  clientSignoff Boolean @default(false)
+  clientNote   String?
+  createdAt    DateTime @default(now())
+}
+
+// ─────────────────────────── Disputes & support ───────────────────────────
+
+model Dispute {
+  id           String        @id @default(cuid())
+  ref          String        @unique
+  taskId       String        @unique
+  task         Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  raisedById   String
+  raisedBy     User          @relation("DisputeRaisedBy", fields: [raisedById], references: [id])
+  raisedByRole DisputeParty
+  status       DisputeStatus @default(OPEN)
+  amount       Int           @default(0)
+  claim        String
+  counterClaim String?
+  evidence     String[]      @default([])
+  resolution   String?
+  outcome      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model SupportTicket {
+  id        String         @id @default(cuid())
+  ref       String         @unique
+  fromId    String
+  from      User           @relation(fields: [fromId], references: [id])
+  subject   String
+  body      String
+  status    TicketStatus   @default(NEW)
+  priority  TicketPriority @default(NORMAL)
+  reply     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+// ─────────────────────────── Chat ───────────────────────────
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  fromRole   Role
+  body       String
+  attachment String?
+  createdAt  DateTime @default(now())
+}
+
+// ─────────────────────────── KYC / verification ───────────────────────────
+
+model KycSubmission {
+  id         String    @id @default(cuid())
+  kind       KycKind
+  subjectId  String
+  subject    User      @relation("KycSubject", fields: [subjectId], references: [id])
+  status     KycStatus @default(PENDING)
+  documents  Json // [{ label, detail, ok }]
+  note       String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}

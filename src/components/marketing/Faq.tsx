@@ -17,7 +17,7 @@ const QA = [
   {
     q: { en: "What stops a student from claiming work they didn't do?", bn: "একজন শিক্ষার্থী নিজের না করা কাজ দাবি করলে কী আটকাবে?" },
     a: {
-      en: "Nothing enters the record on a self-claim. A mentor scores the work against a sector rubric and the paying client signs it off. Both, or it does not count. Commit counts and activity metrics are deliberately not used — they are trivially gamed and say nothing about who contributed what.",
+      en: "Nothing enters the record on a self-claim. A coordinator scores the work against a sector rubric and the paying client signs it off. Both, or it does not count. Commit counts and activity metrics are deliberately not used — they are trivially gamed and say nothing about who contributed what.",
       bn: "self-claim দিয়ে কিছুই রেকর্ডে ঢোকে না। একজন মেন্টর সেক্টর রুব্রিকে কাজটি মূল্যায়ন করেন এবং টাকা দেওয়া ক্লায়েন্ট সাইন-অফ করেন। দুটোই, নাহলে গণনা হয় না। কমিট কাউন্ট বা অ্যাক্টিভিটি মেট্রিক ইচ্ছাকৃতভাবে ব্যবহার করা হয় না — সেগুলো সহজেই গেম করা যায় এবং কে কী করেছে তা বলে না।",
     },
   },

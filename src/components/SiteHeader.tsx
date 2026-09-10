@@ -29,11 +29,6 @@ const DEMOS: { href: string; label: L; desc: L }[] = [
     desc: { en: "Matched tasks, submissions, earnings", bn: "ম্যাচ করা টাস্ক, সাবমিশন, আয়" },
   },
   {
-    href: "/app/mentor",
-    label: { en: "Mentor console", bn: "মেন্টর কনসোল" },
-    desc: { en: "Review queue and rubric scoring", bn: "রিভিউ কিউ ও রুব্রিক স্কোরিং" },
-  },
-  {
     href: "/app/moderator",
     label: { en: "Moderator console", bn: "মডারেটর কনসোল" },
     desc: { en: "Scope review, payments, verification, controls", bn: "স্কোপ রিভিউ, পেমেন্ট, যাচাই, নিয়ন্ত্রণ" },

@@ -33,16 +33,6 @@ export type Student = {
   bio: L;
 };
 
-export type Mentor = {
-  id: string;
-  name: L;
-  role: L;
-  org: L;
-  sectorIds: string[];
-  reviews: number;
-  avgTurnaround: L;
-};
-
 export type Client = {
   id: string;
   name: L;
@@ -105,9 +95,9 @@ export type Evaluation = {
   id: string;
   taskId: string;
   studentId: string;
-  mentorId: string;
+  reviewerId: string;          // the coordinator who scored it
   scores: RubricScore[];
-  mentorNote: L;
+  reviewerNote: L;
   clientSignoff: boolean;
   clientNote?: L;
   dateLabel: L;
@@ -120,7 +110,7 @@ export type PassportEntry = {
   sectorId: string;
   dateLabel: L;
   score: number;
-  mentor: L;
+  reviewer: L;
   outcome: L;
   skills: string[];
 };
@@ -160,4 +150,122 @@ export type Submission = {
   score?: number;
   maxScore?: number;
   aiFeedback: L;
+};
+
+/* ── Trial task layer ─────────────────────────────────────────── */
+
+/** A small AI-built mirror of the real task. Applying means doing this. */
+export type Trial = {
+  id: string;
+  taskId: string;
+  title: L;
+  brief: L;
+  mirrors: L;          // which part of the real task this copies
+  minutes: number;     // how long it should take
+  acceptance: { en: string[]; bn: string[] };
+  aiNote: L;           // why this trial was chosen as the test
+};
+
+export type TrialOutcome = "pending" | "shortlisted" | "not_shortlisted" | "selected";
+
+export type TrialAttempt = {
+  id: string;
+  trialId: string;
+  taskId: string;
+  studentId: string;
+  submittedLabel: L;
+  minutesTaken: number;
+  summary: L;                                  // what the student produced
+  aiScore: number;                             // 0–100
+  aiBreakdown: { dim: L; score: number; max: number }[];
+  aiVerdict: L;                                // AI's reasoning, shown to everyone
+  aiCoaching: L;                               // private, for this student only
+  rank: number;
+  outcome: TrialOutcome;
+  points: number;                              // +1 / 0 / −1
+  pointsReason: L;
+};
+
+export type PointEntry = {
+  id: string;
+  studentId: string;
+  taskId: string;
+  delta: number;
+  reason: L;
+  dateLabel: L;
+};
+
+/* ── Chat ─────────────────────────────────────────────────────── */
+
+export type ChatMessage = {
+  id: string;
+  taskId: string;
+  from: "client" | "student" | "moderator";
+  authorName: L;
+  body: L;
+  timeLabel: L;
+  attachment?: L;
+};
+
+/* ── Disputes & support ───────────────────────────────────────── */
+
+export type DisputeStatus = "open" | "evidence" | "resolved";
+
+export type Dispute = {
+  id: string;
+  ref: string;
+  taskId: string;
+  raisedBy: "client" | "student";
+  raisedByName: L;
+  openedLabel: L;
+  status: DisputeStatus;
+  amount: number;
+  claim: L;
+  counterClaim: L;
+  evidence: { en: string[]; bn: string[] };
+  resolution?: L;
+  outcome?: L;
+};
+
+export type TicketStatus = "new" | "answered" | "closed";
+
+export type SupportTicket = {
+  id: string;
+  ref: string;
+  fromRole: "client" | "student";
+  fromName: L;
+  subject: L;
+  body: L;
+  openedLabel: L;
+  status: TicketStatus;
+  priority: "high" | "normal";
+  reply?: L;
+};
+
+/* ── Client check on the AI's trial ───────────────────────────
+
+   The AI writes the trial, but the client owns the job. Before a task
+   is posted, the client is shown the real task and the AI's small copy
+   side by side and asked one question: is this actually a piece of my
+   work? Nothing posts until they say yes.
+   ──────────────────────────────────────────────────────────── */
+
+export type TrialCheckStatus = "awaiting_client" | "approved" | "changes_asked";
+
+export type TrialCheck = {
+  taskId: string;
+  status: TrialCheckStatus;
+  askedLabel: L;
+  decidedLabel?: L;
+  clientNote?: L;      // what the client said when asking for a change
+};
+
+/** The one person the moderator puts forward to the client. */
+export type Suggestion = {
+  taskId: string;
+  studentId: string;
+  attemptId: string;
+  reason: L;           // why this one, in the moderator's words
+  suggestedLabel: L;
+  triedCount: number;  // how many did the trial in total
 };

@@ -13,6 +13,7 @@ import {
   Cpu,
   GraduationCap,
   Lightbulb,
+  MessageSquare,
   Quote,
   ShieldCheck,
   Sparkles,
@@ -26,6 +27,8 @@ import {
 import { Avatar, Bar, Button, Reveal } from "@/components/ui";
 import SectorIcon from "@/components/SectorIcon";
 import { StatusPill } from "@/components/app/parts";
+import TrialPanel from "./TrialPanel";
+import Thread from "@/components/chat/Thread";
 import { BOARD_TASKS, anyJobById, anyTaskById, applicantsOf, metaOf, submissionsOf } from "@/data/marketplace";
 import { clientById, studentById, STUDENTS } from "@/data/people";
 import { sectorById } from "@/data/sectors";
@@ -58,7 +61,7 @@ export default function TaskDetail({ id }: { id: string }) {
     { label: { en: "AI scoped and priced it", bn: "এআই স্কোপ ও দাম নির্ধারণ করেছে" }, done: true },
     { label: { en: "Coordinator approved the scope", bn: "কোঅর্ডিনেটর স্কোপ অনুমোদন করেছেন" }, done: !cancelled },
     { label: { en: "Matched to a student", bn: "শিক্ষার্থীর সাথে ম্যাচ" }, done: ["in_progress", "in_review", "revision", "approved"].includes(task.status) },
-    { label: { en: "Mentor scored the work", bn: "মেন্টর কাজ মূল্যায়ন করেছেন" }, done: ["in_review", "approved"].includes(task.status) },
+    { label: { en: "A coordinator scored the work", bn: "কোঅর্ডিনেটর কাজ মূল্যায়ন করেছেন" }, done: ["in_review", "approved"].includes(task.status) },
     { label: { en: "Client signed off", bn: "ক্লায়েন্ট সাইন-অফ করেছেন" }, done: task.status === "approved" },
   ];
 
@@ -260,7 +263,7 @@ export default function TaskDetail({ id }: { id: string }) {
                   <p className="mt-4 text-[12px] leading-relaxed text-ink-4">
                     <T
                       v={{
-                        en: "These are agreed before anyone starts, and they are what the mentor scores against. Nothing outside this list can be used to reject the work.",
+                        en: "These are agreed before anyone starts, and they are what the work is scored against. Nothing outside this list can be used to reject the work.",
                         bn: "কেউ শুরুর আগেই এগুলো সম্মত হয়, আর মেন্টর এগুলোর বিপরীতেই স্কোর দেন। এই তালিকার বাইরের কিছু দিয়ে কাজ বাতিল করা যায় না।",
                       }}
                     />
@@ -291,6 +294,24 @@ export default function TaskDetail({ id }: { id: string }) {
                 </div>
               </div>
             </Reveal>
+
+            {/* trial task — applying means doing this */}
+            <TrialPanel taskId={id} closed={closed} />
+
+            {/* live thread on a task in progress */}
+            {task.status === "in_progress" && (
+              <Reveal delay={130}>
+                <div className="overflow-hidden rounded-[18px] border border-line bg-white">
+                  <div className="flex items-center gap-2 border-b border-line bg-canvas-2/60 px-6 py-4">
+                    <MessageSquare className="size-3.5 text-brand-600" />
+                    <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+                      <T v={{ en: "Client and student, on this task", bn: "এই টাস্কে ক্লায়েন্ট ও শিক্ষার্থী" }} />
+                    </span>
+                  </div>
+                  <Thread taskId={id} me="student" />
+                </div>
+              </Reveal>
+            )}
 
             {/* applicants */}
             {applicants.length > 0 && (
@@ -379,13 +400,13 @@ export default function TaskDetail({ id }: { id: string }) {
                     <p className="mt-4 text-[12.5px] leading-relaxed text-ink-3">
                       <T
                         v={{
-                          en: "The fee is fixed before you see the task. You are not bidding, and nobody can undercut you.",
-                          bn: "টাস্ক দেখার আগেই ফি নির্ধারিত। আপনি বিড করছেন না, আর কেউ কম দামে কেড়ে নিতে পারবে না।",
+                          en: "No pitch, no bidding. Applying means doing a short AI-built copy of this task — the AI scores it, and a moderator picks from the ranking.",
+                          bn: "কোনো পিচ নয়, কোনো বিড নয়। আবেদন মানে এই টাস্কেরই এআই-বানানো একটি ছোট কপি করে দেখানো — এআই নম্বর দেয়, আর র‍্যাংকিং থেকে মডারেটর বেছে নেন।",
                         }}
                       />
                     </p>
                     <Button full size="lg" className="mt-5" icon={<Sparkles className="size-4" />}>
-                      <T v={{ en: "Apply for this task", bn: "এই টাস্কে আবেদন" }} />
+                      <T v={{ en: "Do the trial task to apply", bn: "আবেদন করতে ট্রায়াল টাস্ক করুন" }} />
                     </Button>
                     <p className="mt-3 text-center text-[11.5px] text-ink-4">{t(task.dueLabel)}</p>
                   </>
@@ -473,8 +494,8 @@ export default function TaskDetail({ id }: { id: string }) {
                     <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-brand-500" />
                     <T
                       v={{
-                        en: "Business identity verified by a coordinator. The fee is held by the platform, not by the client.",
-                        bn: "কোঅর্ডিনেটর ব্যবসার পরিচয় যাচাই করেছেন। ফি ক্লায়েন্টের কাছে নয়, প্ল্যাটফর্মে আটকে থাকে।",
+                        en: "The fee for this task is already deposited and held by the platform, not by the client. That deposit — not a scanned licence — is what the platform checks about a business.",
+                        bn: "এই টাস্কের ফি ইতিমধ্যে জমা দেওয়া, আর সেটা ক্লায়েন্টের কাছে নয়, প্ল্যাটফর্মে আটকে আছে। স্ক্যান করা লাইসেন্স নয় — এই জমাটাই ব্যবসা সম্পর্কে প্ল্যাটফর্ম যা যাচাই করে।",
                       }}
                     />
                   </p>

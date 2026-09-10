@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  CheckCircle2,
   AlertTriangle,
   ArrowRight,
   BadgeCheck,
@@ -20,7 +21,7 @@ import {
 } from "lucide-react";
 import { Bar, Button, Reveal } from "@/components/ui";
 import SectorIcon from "@/components/SectorIcon";
-import { scope, type ScopeResult } from "@/lib/engine";
+import { scope, scopeOne, type ScopeResult, type SingleScope } from "@/lib/engine";
 import { sectorById, SECTORS } from "@/data/sectors";
 import { PRESETS } from "./presets";
 import { T, useLang, useNum, type L } from "@/lib/i18n";
@@ -46,6 +47,7 @@ export default function Playground() {
   const [sectorId, setSectorId] = useState("auto");
   const [stage, setStage] = useState(-1); // -1 idle, 0..5 running, 6 done
   const [result, setResult] = useState<ScopeResult | null>(null);
+  const [one, setOne] = useState<SingleScope | null>(null);
   const [tab, setTab] = useState<Tab>("tasks");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -65,14 +67,19 @@ export default function Playground() {
     if (!brief.trim()) return;
     clearTimers();
     setResult(null);
+    setOne(null);
     setStage(0);
     setTab("tasks");
     const computed = scope(brief, sectorId === "auto" ? undefined : { sectorId });
+    const single = scopeOne(brief, sectorId === "auto" ? undefined : { sectorId });
     for (let i = 1; i <= STAGES.length; i += 1) {
       timers.current.push(
         setTimeout(() => {
           setStage(i);
-          if (i === STAGES.length) setResult(computed);
+          if (i === STAGES.length) {
+            setResult(computed);
+            setOne(single);
+          }
         }, 460 * i)
       );
     }
@@ -84,7 +91,7 @@ export default function Playground() {
 
   const tabs: { key: Tab; label: L; count?: number }[] = useMemo(
     () => [
-      { key: "tasks", label: { en: "Task graph", bn: "টাস্ক গ্রাফ" }, count: result?.tasks.length },
+      { key: "tasks", label: { en: "The task & trial", bn: "কাজ ও ট্রায়াল" } },
       { key: "risks", label: { en: "Risks", bn: "ঝুঁকি" }, count: result?.risks.length },
       { key: "matches", label: { en: "Matches", bn: "ম্যাচ" }, count: result?.matches.length },
       { key: "rubric", label: { en: "Rubric", bn: "রুব্রিক" } },
@@ -256,7 +263,7 @@ export default function Playground() {
                     <T
                       v={{
                         en: "Pick an example or write a brief on the left, then run the scope. The engine will decompose it into priced tasks, flag what it cannot know, and shortlist students with its reasoning shown.",
-                        bn: "বাঁ পাশে একটি উদাহরণ বেছে নিন বা ব্রিফ লিখুন, তারপর স্কোপ চালান। ইঞ্জিন সেটাকে নির্ধারিত দামের টাস্কে ভাগ করবে, যা জানা সম্ভব নয় তা চিহ্নিত করবে, আর যুক্তিসহ শিক্ষার্থীদের শর্টলিস্ট করবে।",
+                        bn: "বাঁ পাশে একটি উদাহরণ বেছে নিন বা ব্রিফ লিখুন, তারপর স্কোপ চালান। ইঞ্জিন কাজটির দাম ঠিক করবে, যা জানা সম্ভব নয় তা চিহ্নিত করবে, আর যুক্তিসহ শিক্ষার্থীদের শর্টলিস্ট করবে।",
                       }}
                     />
                   </p>
@@ -349,7 +356,7 @@ export default function Playground() {
                 </div>
 
                 <div className="p-7">
-                  {tab === "tasks" && <TaskGraph result={result} />}
+                  {tab === "tasks" && one && <TaskAndTrial one={one} />}
                   {tab === "risks" && <Risks result={result} />}
                   {tab === "matches" && <Matches result={result} />}
                   {tab === "rubric" && <Rubric sectorId={result.sectorId} />}
@@ -385,78 +392,73 @@ export default function Playground() {
 
 /* ── Result panels ────────────────────────────────────────────── */
 
-function TaskGraph({ result }: { result: ScopeResult }) {
+function TaskAndTrial({ one }: { one: SingleScope }) {
   const { t, tl } = useLang();
   const n = useNum();
-  const [open, setOpen] = useState<number | null>(1);
 
   return (
-    <ol className="space-y-2.5">
-      {result.tasks.map((task, i) => {
-        const isOpen = open === task.seq;
-        return (
-          <li
-            key={task.id}
-            className="overflow-hidden rounded-[14px] border border-line bg-white transition-colors hover:border-brand-200"
-            style={{ animation: `wb-rise .6s cubic-bezier(.16,1,.3,1) ${i * 70}ms both` }}
-          >
-            <button onClick={() => setOpen(isOpen ? null : task.seq)} className="flex w-full items-start gap-3.5 p-4 text-left">
-              <span className="num mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-brand-50 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-100">
-                {n(task.seq)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[14.5px] font-medium leading-snug text-ink">{t(task.title)}</span>
-                <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11.5px] text-ink-4">
-                  <span className="num font-semibold text-brand-700">৳{n(task.fee.toLocaleString("en-US"))}</span>
-                  <span>·</span>
-                  <span className="num">{n(task.hours)}h</span>
-                  <span>·</span>
-                  <span className="capitalize">{task.level}</span>
-                  {task.dependsOn && (
-                    <>
-                      <span>·</span>
-                      <span className="inline-flex items-center gap-1">
-                        <ArrowRight className="size-3 rotate-180" />
-                        <T v={{ en: "needs", bn: "লাগবে" }} /> #{n(task.dependsOn)}
-                      </span>
-                    </>
-                  )}
-                </span>
-              </span>
-              <span className="mt-1 flex shrink-0 flex-wrap justify-end gap-1">
-                {task.skills.slice(0, 2).map((s) => (
-                  <span key={s} className="rounded-md bg-canvas-2 px-2 py-0.5 text-[10.5px] text-ink-3 ring-1 ring-line">
-                    {s}
-                  </span>
-                ))}
-              </span>
-            </button>
-
-            <div className="grid transition-all duration-400 ease-[cubic-bezier(.16,1,.3,1)]" style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}>
-              <div className="overflow-hidden">
-                <div className="border-t border-line bg-canvas-2/40 p-4 pl-[62px]">
-                  <p className="text-[13px] leading-relaxed text-ink-2">{t(task.desc)}</p>
-                  <div className="mt-4">
-                    <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                      <ListChecks className="size-3.5" />
-                      <T v={{ en: "Acceptance criteria", bn: "গ্রহণযোগ্যতার শর্ত" }} />
-                    </div>
-                    <ul className="mt-2.5 space-y-1.5">
-                      {tl(task.acceptance).map((a) => (
-                        <li key={a} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-2">
-                          <span className="mt-[7px] size-1 shrink-0 rounded-full bg-brand-400" />
-                          {a}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
+    <div className="space-y-3">
+      <div className="overflow-hidden rounded-[14px] border border-line bg-white" style={{ animation: "wb-rise .6s cubic-bezier(.16,1,.3,1) both" }}>
+        <div className="flex flex-wrap items-start gap-4 p-5">
+          <div className="min-w-0 flex-1">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+              <T v={{ en: "One task, one price", bn: "একটি কাজ, একটি দাম" }} />
             </div>
-          </li>
-        );
-      })}
-    </ol>
+            <h4 className="mt-2 text-[15.5px] font-medium leading-snug text-ink">{t(one.task.title)}</h4>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">{t(one.task.desc)}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {one.task.skills.map((sk: string) => (
+                <span key={sk} className="rounded-md bg-canvas-2 px-2 py-0.5 text-[10.5px] text-ink-3 ring-1 ring-line">
+                  {sk}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="num text-[24px] font-semibold tracking-[-0.035em] text-ink" style={{ fontFamily: "var(--font-display)" }}>
+              ৳{n(one.task.fee.toLocaleString("en-US"))}
+            </div>
+            <div className="num mt-1 text-[12px] text-ink-4">
+              {n(one.task.hours)}h · ৳{n(one.price.rate)}/h
+            </div>
+            <div className="mt-1 text-[11px] capitalize text-ink-4">{one.task.level}</div>
+          </div>
+        </div>
+
+        <div className="border-t border-line bg-canvas-2/40 p-5">
+          <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+            <CheckCircle2 className="size-3 text-brand-500" />
+            <T v={{ en: "What counts as done", bn: "কী হলে সম্পন্ন ধরা হবে" }} />
+          </div>
+          <ul className="mt-2.5 space-y-2">
+            {tl(one.task.acceptance).map((a) => (
+              <li key={a} className="flex items-start gap-2.5 text-[12.5px] leading-relaxed text-ink-2">
+                <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-brand-500" />
+                {a}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div
+        className="overflow-hidden rounded-[14px] border border-brand-100 bg-brand-50/40 p-5"
+        style={{ animation: "wb-rise .6s cubic-bezier(.16,1,.3,1) 90ms both" }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-brand-700">
+            <Cpu className="size-3" />
+            <T v={{ en: "The trial applicants will do", bn: "আবেদনকারীরা যে ট্রায়ালটি করবেন" }} />
+          </div>
+          <span className="num rounded-full bg-white px-2.5 py-1 text-[11.5px] text-ink-3 ring-1 ring-brand-100">
+            {n(one.trial.minutes)} <T v={{ en: "min", bn: "মিনিট" }} />
+          </span>
+        </div>
+        <p className="mt-3 text-[13.5px] font-medium leading-snug text-ink">{t(one.trial.title)}</p>
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-2">{t(one.trial.brief)}</p>
+        <p className="mt-3 text-[12px] leading-relaxed text-brand-900/80">{t(one.trial.mirrors)}</p>
+      </div>
+    </div>
   );
 }
 
@@ -565,7 +567,7 @@ function Rubric({ sectorId }: { sectorId: string }) {
       <p className="mb-5 text-[13px] leading-relaxed text-ink-3">
         <T
           v={{
-            en: "Every delivered task is scored against this sector's rubric by a mentor, then signed off by the paying client. Both, or the work never enters the graduate's verified record.",
+            en: "Every delivered task is scored against this sector's rubric by a coordinator, then signed off by the paying client. Both, or the work never enters the graduate's verified record.",
             bn: "ডেলিভার করা প্রতিটি টাস্ক এই সেক্টরের রুব্রিকে মেন্টর মূল্যায়ন করেন, তারপর টাকা দেওয়া ক্লায়েন্ট সাইন-অফ করেন। দুটোই, নাহলে কাজটি কখনো গ্র্যাজুয়েটের ভেরিফায়েড রেকর্ডে ঢোকে না।",
           }}
         />

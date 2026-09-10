@@ -33,7 +33,7 @@ export const PAYMENTS: Payment[] = [
     id: "p1", ref: "PAY-4417", direction: "in", clientId: "c1", jobId: "j1", taskId: "t2",
     amount: 6000, method: { en: "bKash merchant", bn: "বিকাশ মার্চেন্ট" }, status: "released",
     studentId: "s1", dateLabel: { en: "4 days ago", bn: "৪ দিন আগে" },
-    note: { en: "Released after mentor score and client sign-off", bn: "মেন্টর স্কোর ও ক্লায়েন্ট সাইন-অফের পর ছাড়া হয়েছে" },
+    note: { en: "Released after the coordinator score and the client sign-off", bn: "কোঅর্ডিনেটরের স্কোর ও ক্লায়েন্ট সাইন-অফের পর ছাড়া হয়েছে" },
   },
   {
     id: "p2", ref: "PAY-4429", direction: "in", clientId: "c1", jobId: "j1", taskId: "t3",
@@ -45,7 +45,7 @@ export const PAYMENTS: Payment[] = [
     id: "p3", ref: "PAY-4431", direction: "in", clientId: "c3", jobId: "j3", taskId: "t12",
     amount: 2500, method: { en: "Bank transfer", bn: "ব্যাংক ট্রান্সফার" }, status: "held",
     studentId: "s2", dateLabel: { en: "2 days ago", bn: "২ দিন আগে" },
-    note: { en: "Mentor scored 23/25, sign-off pending", bn: "মেন্টর ২৩/২৫ দিয়েছেন, সাইন-অফ বাকি" },
+    note: { en: "Scored 23/25, client sign-off pending", bn: "২৩/২৫ স্কোর, ক্লায়েন্টের সাইন-অফ বাকি" },
   },
   {
     id: "p4", ref: "PAY-4436", direction: "in", clientId: "c2", jobId: "j2",
@@ -77,9 +77,89 @@ export const PAYMENTS: Payment[] = [
   },
 ];
 
-/* ── Identity & business verification ─────────────────────────── */
+/* ── Client payment methods ───────────────────────────────────
 
-export type KycKind = "client" | "student" | "mentor";
+   The whole of a client's onboarding. Two steps, no documents:
+   open an account, add a way to pay. Everything else the platform
+   needs to know about a business it learns from money that actually
+   arrives and work it actually signs off.
+   ──────────────────────────────────────────────────────────── */
+
+export type PayMethodKind = "bkash" | "nagad" | "bank" | "card";
+
+export type PayMethod = {
+  id: string;
+  clientId: string;
+  kind: PayMethodKind;
+  label: L;
+  detail: L;          // masked account, never a full number
+  addedLabel: L;
+  isDefault: boolean;
+  state: "ok" | "failing";
+  note?: L;
+};
+
+export const PAY_METHODS: PayMethod[] = [
+  {
+    id: "pm1", clientId: "c1", kind: "bkash",
+    label: { en: "bKash merchant", bn: "বিকাশ মার্চেন্ট" },
+    detail: { en: "•••• 4471 · Nokshi Threads", bn: "•••• ৪৪৭১ · নকশী থ্রেডস" },
+    addedLabel: { en: "Added 5 months ago", bn: "৫ মাস আগে যোগ" },
+    isDefault: true, state: "ok",
+  },
+  {
+    id: "pm2", clientId: "c1", kind: "bank",
+    label: { en: "Bank transfer", bn: "ব্যাংক ট্রান্সফার" },
+    detail: { en: "•••• 8820 · City Bank, Gulshan", bn: "•••• ৮৮২০ · সিটি ব্যাংক, গুলশান" },
+    addedLabel: { en: "Added 2 months ago", bn: "২ মাস আগে যোগ" },
+    isDefault: false, state: "ok",
+    note: { en: "Used for deposits above ৳25,000", bn: "৳২৫,০০০-এর বেশি জমার জন্য ব্যবহৃত" },
+  },
+  {
+    id: "pm3", clientId: "c2", kind: "nagad",
+    label: { en: "Nagad", bn: "নগদ" },
+    detail: { en: "•••• 6103 · Chaap Ghor", bn: "•••• ৬১০৩ · চাপ ঘর" },
+    addedLabel: { en: "Added 3 weeks ago", bn: "৩ সপ্তাহ আগে যোগ" },
+    isDefault: true, state: "ok",
+  },
+  {
+    id: "pm4", clientId: "c3", kind: "bank",
+    label: { en: "Bank transfer", bn: "ব্যাংক ট্রান্সফার" },
+    detail: { en: "•••• 3355 · Sonali Bank, Bogura", bn: "•••• ৩৩৫৫ · সোনালী ব্যাংক, বগুড়া" },
+    addedLabel: { en: "Added 4 months ago", bn: "৪ মাস আগে যোগ" },
+    isDefault: true, state: "failing",
+    note: { en: "Two deposits rejected by the bank — new posts paused until this works or another method is added", bn: "ব্যাংক দুইবার জমা ফিরিয়ে দিয়েছে — এটি ঠিক না হওয়া বা নতুন মেথড যোগ না করা পর্যন্ত নতুন পোস্ট থামানো" },
+  },
+];
+
+export const methodsOfClient = (clientId: string) => PAY_METHODS.filter((m) => m.clientId === clientId);
+
+/** The two steps that make up a client account. Nothing else is asked for. */
+export const CLIENT_ONBOARDING: { key: string; title: L; detail: L }[] = [
+  {
+    key: "account",
+    title: { en: "Create the account", bn: "অ্যাকাউন্ট খুলুন" },
+    detail: { en: "Business name, a phone number and an email. Under a minute, no documents.", bn: "ব্যবসার নাম, একটি ফোন নম্বর ও ইমেইল। এক মিনিটের কম, কোনো ডকুমেন্ট নয়।" },
+  },
+  {
+    key: "payment",
+    title: { en: "Add a payment method", bn: "পেমেন্ট মেথড যোগ করুন" },
+    detail: { en: "bKash, Nagad, a bank account or a card. This is the only thing the platform verifies about a business — and it verifies it by taking a real deposit, not by reading a licence.", bn: "বিকাশ, নগদ, ব্যাংক অ্যাকাউন্ট বা কার্ড। ব্যবসা সম্পর্কে প্ল্যাটফর্ম কেবল এটাই যাচাই করে — লাইসেন্স পড়ে নয়, সত্যিকারের একটি জমা নিয়ে।" },
+  },
+];
+
+/* ── Verification ─────────────────────────────────────────────
+
+   Only students are document-checked, because it is their name that
+   goes on a permanent public record. A client is never asked for a
+   trade licence.
+   A client opens an account, adds a payment method, and the deposit
+   clearing is the only proof the platform needs — money that arrives is
+   harder to fake than a scanned licence, and asking an SME owner for
+   paperwork was the single biggest reason they never posted at all.
+   ──────────────────────────────────────────────────────────── */
+
+export type KycKind = "student";
 export type KycStatus = "pending" | "verified" | "rejected" | "resubmit";
 
 export type KycRequest = {
@@ -97,16 +177,30 @@ export type KycRequest = {
 
 export const KYC: KycRequest[] = [
   {
-    id: "k1", kind: "client", subjectId: "c2",
-    name: { en: "Chaap Ghor", bn: "চাপ ঘর" },
-    context: { en: "Restaurant chain · 34 staff · Mirpur, Dhaka", bn: "রেস্টুরেন্ট চেইন · ৩৪ জন কর্মী · মিরপুর, ঢাকা" },
+    id: "k0", kind: "student", subjectId: "s1",
+    name: { en: "Nusrat Jahan", bn: "নুসরাত জাহান" },
+    context: { en: "Computer Science & Engineering, 4th year · Jahangirnagar University", bn: "কম্পিউটার সায়েন্স ও ইঞ্জিনিয়ারিং, ৪র্থ বর্ষ · জাহাঙ্গীরনগর বিশ্ববিদ্যালয়" },
+    submittedLabel: { en: "Submitted 5 months ago", bn: "৫ মাস আগে জমা" },
+    status: "verified", risk: "low",
+    documents: [
+      { label: { en: "Recommendation letter", bn: "সুপারিশপত্র" }, detail: { en: "Department head, on letterhead, signed and sealed", bn: "বিভাগীয় প্রধান, লেটারহেডে, স্বাক্ষর ও সিলসহ" }, ok: true },
+      { label: { en: "Student ID card", bn: "স্টুডেন্ট আইডি কার্ড" }, detail: { en: "Valid to 2027, photo and expiry both legible", bn: "২০২৭ পর্যন্ত বৈধ, ছবি ও মেয়াদ দুটোই স্পষ্ট" }, ok: true },
+      { label: { en: "NID", bn: "এনআইডি" }, detail: { en: "Name and date of birth match the student ID", bn: "নাম ও জন্মতারিখ স্টুডেন্ট আইডির সাথে মেলে" }, ok: true },
+      { label: { en: "Payout account", bn: "পেআউট অ্যাকাউন্ট" }, detail: { en: "bKash personal, account name matches", bn: "বিকাশ পার্সোনাল, অ্যাকাউন্টের নাম মেলে" }, ok: true },
+    ],
+    flags: [],
+  },
+  {
+    id: "k1", kind: "student", subjectId: "s9",
+    name: { en: "Sabina Yeasmin", bn: "সাবিনা ইয়াসমিন" },
+    context: { en: "Statistics, final year · Jahangirnagar University", bn: "পরিসংখ্যান, শেষ বর্ষ · জাহাঙ্গীরনগর বিশ্ববিদ্যালয়" },
     submittedLabel: { en: "Submitted 2 days ago", bn: "২ দিন আগে জমা" },
     status: "pending", risk: "low",
     documents: [
-      { label: { en: "Trade licence", bn: "ট্রেড লাইসেন্স" }, detail: { en: "DNCC, valid to 2027", bn: "ডিএনসিসি, ২০২৭ পর্যন্ত বৈধ" }, ok: true },
-      { label: { en: "TIN certificate", bn: "টিআইএন সার্টিফিকেট" }, detail: { en: "Matches the trade licence name", bn: "ট্রেড লাইসেন্সের নামের সাথে মেলে" }, ok: true },
-      { label: { en: "Owner NID", bn: "মালিকের এনআইডি" }, detail: { en: "Name matches the licence holder", bn: "লাইসেন্সধারীর নামের সাথে মেলে" }, ok: true },
-      { label: { en: "Payment account", bn: "পেমেন্ট অ্যাকাউন্ট" }, detail: { en: "Nagad merchant, name matches", bn: "নগদ মার্চেন্ট, নাম মেলে" }, ok: true },
+      { label: { en: "Recommendation letter", bn: "সুপারিশপত্র" }, detail: { en: "Department letterhead, signed and sealed", bn: "বিভাগীয় লেটারহেড, স্বাক্ষর ও সিলসহ" }, ok: true },
+      { label: { en: "Student ID card", bn: "স্টুডেন্ট আইডি কার্ড" }, detail: { en: "Valid to 2027, photo clear", bn: "২০২৭ পর্যন্ত বৈধ, ছবি স্পষ্ট" }, ok: true },
+      { label: { en: "NID", bn: "এনআইডি" }, detail: { en: "Name matches the student ID", bn: "স্টুডেন্ট আইডির নামের সাথে মেলে" }, ok: true },
+      { label: { en: "Payout account", bn: "পেআউট অ্যাকাউন্ট" }, detail: { en: "bKash personal, name matches", bn: "বিকাশ পার্সোনাল, নাম মেলে" }, ok: true },
     ],
     flags: [],
   },
@@ -117,6 +211,7 @@ export const KYC: KycRequest[] = [
     submittedLabel: { en: "Submitted 5 hours ago", bn: "৫ ঘণ্টা আগে জমা" },
     status: "pending", risk: "medium",
     documents: [
+      { label: { en: "Recommendation letter", bn: "সুপারিশপত্র" }, detail: { en: "Signed by the department head, letterhead and seal both present", bn: "বিভাগীয় প্রধানের স্বাক্ষরিত, লেটারহেড ও সিল দুটোই আছে" }, ok: true },
       { label: { en: "Student ID card", bn: "স্টুডেন্ট আইডি কার্ড" }, detail: { en: "Photo legible, expiry not visible", bn: "ছবি স্পষ্ট, মেয়াদ দেখা যাচ্ছে না" }, ok: false },
       { label: { en: "Department confirmation", bn: "বিভাগীয় নিশ্চয়তা" }, detail: { en: "Emailed from a university domain", bn: "বিশ্ববিদ্যালয়ের ডোমেইন থেকে ইমেইল" }, ok: true },
       { label: { en: "NID / birth certificate", bn: "এনআইডি / জন্ম নিবন্ধন" }, detail: { en: "NID, name matches the student ID", bn: "এনআইডি, স্টুডেন্ট আইডির নামের সাথে মেলে" }, ok: true },
@@ -131,6 +226,7 @@ export const KYC: KycRequest[] = [
     submittedLabel: { en: "Submitted yesterday", bn: "গতকাল জমা" },
     status: "pending", risk: "low",
     documents: [
+      { label: { en: "Recommendation letter", bn: "সুপারিশপত্র" }, detail: { en: "From a college teacher — phone number on the letter answered, identity confirmed", bn: "কলেজ শিক্ষকের কাছ থেকে — চিঠির নম্বরে ফোন ধরা হয়েছে, পরিচয় নিশ্চিত" }, ok: true },
       { label: { en: "Certificate / transcript", bn: "সার্টিফিকেট / ট্রান্সক্রিপ্ট" }, detail: { en: "Provisional certificate, registration number legible", bn: "প্রভিশনাল সার্টিফিকেট, রেজিস্ট্রেশন নম্বর স্পষ্ট" }, ok: true },
       { label: { en: "NID", bn: "এনআইডি" }, detail: { en: "Name and date of birth match", bn: "নাম ও জন্মতারিখ মেলে" }, ok: true },
       { label: { en: "Payout account", bn: "পেআউট অ্যাকাউন্ট" }, detail: { en: "bKash personal, name matches", bn: "বিকাশ পার্সোনাল, নাম মেলে" }, ok: true },
@@ -138,31 +234,33 @@ export const KYC: KycRequest[] = [
     flags: [{ en: "National University cohort — the group with the highest unemployment and the least access to proof", bn: "জাতীয় বিশ্ববিদ্যালয়ের দল — যাদের বেকারত্ব সর্বোচ্চ ও প্রমাণের সুযোগ সর্বনিম্ন" }],
   },
   {
-    id: "k4", kind: "client", subjectId: "c3",
-    name: { en: "Shopno Agro", bn: "স্বপ্ন এগ্রো" },
-    context: { en: "Agri supply · 17 staff · Bogura", bn: "কৃষি সরবরাহ · ১৭ জন কর্মী · বগুড়া" },
-    submittedLabel: { en: "Submitted 3 days ago", bn: "৩ দিন আগে জমা" },
+    id: "k4", kind: "student", subjectId: "s7",
+    name: { en: "Mehedi Hasan — re-upload", bn: "মেহেদী হাসান — পুনরায় আপলোড" },
+    context: { en: "Software Engineering, 3rd year · Daffodil International University", bn: "সফটওয়্যার ইঞ্জিনিয়ারিং, ৩য় বর্ষ · ড্যাফোডিল ইন্টারন্যাশনাল ইউনিভার্সিটি" },
+    submittedLabel: { en: "Re-submitted 3 days ago", bn: "৩ দিন আগে আবার জমা" },
     status: "resubmit", risk: "medium",
     documents: [
-      { label: { en: "Trade licence", bn: "ট্রেড লাইসেন্স" }, detail: { en: "Expired 4 months ago", bn: "৪ মাস আগে মেয়াদ শেষ" }, ok: false },
-      { label: { en: "TIN certificate", bn: "টিআইএন সার্টিফিকেট" }, detail: { en: "Valid", bn: "বৈধ" }, ok: true },
-      { label: { en: "Owner NID", bn: "মালিকের এনআইডি" }, detail: { en: "Valid, name matches", bn: "বৈধ, নাম মেলে" }, ok: true },
-      { label: { en: "Payment account", bn: "পেমেন্ট অ্যাকাউন্ট" }, detail: { en: "Bank account in the business name", bn: "ব্যবসার নামে ব্যাংক অ্যাকাউন্ট" }, ok: true },
+      { label: { en: "Recommendation letter", bn: "সুপারিশপত্র" }, detail: { en: "Signed, but the department seal is missing", bn: "স্বাক্ষর আছে, তবে বিভাগীয় সিল নেই" }, ok: false },
+      { label: { en: "Student ID card", bn: "স্টুডেন্ট আইডি কার্ড" }, detail: { en: "Expiry now visible, valid to 2027", bn: "মেয়াদ এখন দেখা যাচ্ছে, ২০২৭ পর্যন্ত বৈধ" }, ok: true },
+      { label: { en: "Payout account", bn: "পেআউট অ্যাকাউন্ট" }, detail: { en: "bKash personal, name matches", bn: "বিকাশ পার্সোনাল, নাম মেলে" }, ok: true },
     ],
-    flags: [{ en: "Existing projects continue; new job posts are blocked until the licence is renewed", bn: "চলমান প্রজেক্ট চলবে; লাইসেন্স নবায়ন না হওয়া পর্যন্ত নতুন জব পোস্ট বন্ধ" }],
+    flags: [{ en: "Ask for the sealed copy — an unsealed letter is the one document anyone could type themselves", bn: "সিলসহ কপি চান — সিল ছাড়া চিঠিই একমাত্র ডকুমেন্ট যা যে কেউ নিজে টাইপ করে ফেলতে পারেন" }],
   },
   {
-    id: "k5", kind: "mentor", subjectId: "m2",
-    name: { en: "Farhana Rahman, ACA", bn: "ফারহানা রহমান, এসিএ" },
-    context: { en: "Chartered Accountant · ICAB practising member", bn: "চার্টার্ড অ্যাকাউন্ট্যান্ট · আইসিএবি অনুশীলনরত সদস্য" },
+    id: "k5", kind: "student", subjectId: "s5",
+    name: { en: "Sadia Islam", bn: "সাদিয়া ইসলাম" },
+    context: { en: "Fine Arts — Graphic Design · University of Development Alternative", bn: "ফাইন আর্টস — গ্রাফিক ডিজাইন · ইউনিভার্সিটি অফ ডেভেলপমেন্ট অল্টারনেটিভ" },
     submittedLabel: { en: "Submitted 6 days ago", bn: "৬ দিন আগে জমা" },
     status: "verified", risk: "low",
     documents: [
-      { label: { en: "ICAB membership", bn: "আইসিএবি সদস্যপদ" }, detail: { en: "Verified against the public register", bn: "পাবলিক রেজিস্টারের সাথে যাচাই করা" }, ok: true },
-      { label: { en: "NID", bn: "এনআইডি" }, detail: { en: "Name matches the register entry", bn: "রেজিস্টার এন্ট্রির নামের সাথে মেলে" }, ok: true },
+      { label: { en: "Recommendation letter", bn: "সুপারিশপত্র" }, detail: { en: "Department head, letterhead and seal both present", bn: "বিভাগীয় প্রধান, লেটারহেড ও সিল দুটোই আছে" }, ok: true },
+      { label: { en: "Certificate", bn: "সার্টিফিকেট" }, detail: { en: "Provisional certificate, registration number legible", bn: "প্রভিশনাল সার্টিফিকেট, রেজিস্ট্রেশন নম্বর স্পষ্ট" }, ok: true },
+      { label: { en: "NID", bn: "এনআইডি" }, detail: { en: "Name and date of birth match", bn: "নাম ও জন্মতারিখ মেলে" }, ok: true },
+      { label: { en: "Payout account", bn: "পেআউট অ্যাকাউন্ট" }, detail: { en: "bKash personal, name matches", bn: "বিকাশ পার্সোনাল, নাম মেলে" }, ok: true },
     ],
     flags: [],
   },
+
 ];
 
 /* ── AI scope review — the human gate ─────────────────────────── */
@@ -222,7 +320,7 @@ export type VerificationCheck = {
   id: string;
   evaluationId: string;
   taskId: string;
-  mentorOk: boolean;
+  reviewerOk: boolean;
   clientOk: boolean;
   note: L;
   state: "clean" | "attention";
@@ -230,21 +328,21 @@ export type VerificationCheck = {
 
 export const VERIFICATION_CHECKS: VerificationCheck[] = [
   {
-    id: "v1", evaluationId: "e1", taskId: "t2", mentorOk: true, clientOk: true,
+    id: "v1", evaluationId: "e1", taskId: "t2", reviewerOk: true, clientOk: true,
     state: "clean",
-    note: { en: "Both signatures present, scores within one point of the mentor's own average. Recorded.", bn: "দুটি স্বাক্ষরই আছে, স্কোর মেন্টরের নিজের গড়ের এক পয়েন্টের মধ্যে। রেকর্ড হয়েছে।" },
+    note: { en: "Both signatures present, and the score matches the evidence attached to the submission. Recorded.", bn: "দুটি স্বাক্ষরই আছে, আর সাবমিশনের সাথে দেওয়া প্রমাণের সাথে স্কোর মেলে। রেকর্ড হয়েছে।" },
   },
   {
-    id: "v2", evaluationId: "e2", taskId: "t11", mentorOk: true, clientOk: true,
+    id: "v2", evaluationId: "e2", taskId: "t11", reviewerOk: true, clientOk: true,
     state: "clean",
     note: { en: "Verification sample of 118 rows re-checked at random. Accuracy claim holds.", bn: "১১৮টি সারির যাচাই নমুনা এলোমেলোভাবে পুনঃপরীক্ষা করা হয়েছে। নির্ভুলতার দাবি টিকেছে।" },
   },
   {
-    id: "v3", evaluationId: "e3", taskId: "t19", mentorOk: true, clientOk: true,
+    id: "v3", evaluationId: "e3", taskId: "t19", reviewerOk: true, clientOk: true,
     state: "attention",
     note: {
-      en: "Mentor and client are both linked to the same business group. Not disqualifying, but the entry is marked so the relationship is visible on the passport.",
-      bn: "মেন্টর ও ক্লায়েন্ট দুজনেই একই ব্যবসায়িক গ্রুপের সাথে যুক্ত। এতে বাতিল হয় না, তবে এন্ট্রিটি চিহ্নিত করা হয়েছে যাতে সম্পর্কটি পাসপোর্টে দৃশ্যমান থাকে।",
+      en: "The coordinator who scored it and the client are linked to the same business group. Not disqualifying, but the entry is marked so the relationship is visible on the passport.",
+      bn: "যিনি স্কোর দিয়েছেন সেই কোঅর্ডিনেটর ও ক্লায়েন্ট একই ব্যবসায়িক গ্রুপের সাথে যুক্ত। এতে বাতিল হয় না, তবে এন্ট্রিটি চিহ্নিত করা হয়েছে যাতে সম্পর্কটি পাসপোর্টে দৃশ্যমান থাকে।",
     },
   },
 ];
@@ -275,7 +373,7 @@ export const CONTROLS: Control[] = [
   },
   {
     key: "dual_signoff",
-    label: { en: "Require mentor score and client sign-off", bn: "মেন্টর স্কোর ও ক্লায়েন্ট সাইন-অফ বাধ্যতামূলক" },
+    label: { en: "Require a coordinator score and the client's sign-off", bn: "কোঅর্ডিনেটরের স্কোর ও ক্লায়েন্টের সাইন-অফ বাধ্যতামূলক" },
     desc: {
       en: "No self-claim ever becomes a verified record. Both signatures, or the work does not count.",
       bn: "কোনো self-claim কখনো ভেরিফায়েড রেকর্ড হয় না। দুটি স্বাক্ষর, নাহলে কাজ গণনা হয় না।",
@@ -353,12 +451,12 @@ export const ACTIVITY: Activity[] = [
   },
   {
     id: "a3", kind: "verify", actor: { en: "System", bn: "সিস্টেম" },
-    action: { en: "Flagged e3 — mentor and client share a business group", bn: "e3 চিহ্নিত — মেন্টর ও ক্লায়েন্ট একই ব্যবসায়িক গ্রুপের" },
+    action: { en: "Flagged e3 — the reviewing coordinator and the client share a business group", bn: "e3 চিহ্নিত — রিভিউকারী কোঅর্ডিনেটর ও ক্লায়েন্ট একই ব্যবসায়িক গ্রুপের" },
     timeLabel: { en: "9 days ago", bn: "৯ দিন আগে" },
   },
   {
     id: "a4", kind: "user", actor: { en: "Coordinator", bn: "কোঅর্ডিনেটর" },
-    action: { en: "Blocked new job posts from Shopno Agro — trade licence expired", bn: "স্বপ্ন এগ্রোর নতুন জব পোস্ট বন্ধ — ট্রেড লাইসেন্সের মেয়াদ শেষ" },
+    action: { en: "Paused new job posts from Shopno Agro — two deposits failed at the gateway", bn: "স্বপ্ন এগ্রোর নতুন জব পোস্ট থামানো — গেটওয়েতে দুইবার জমা ব্যর্থ" },
     timeLabel: { en: "3 days ago", bn: "৩ দিন আগে" },
   },
   {
@@ -374,8 +472,8 @@ export type AccountState = "active" | "review" | "restricted" | "new";
 
 export const CLIENT_STATE: Record<string, { state: AccountState; note: L }> = {
   c1: { state: "active", note: { en: "6 repeat hires, no disputes", bn: "৬টি পুনরায় নিয়োগ, কোনো বিরোধ নেই" } },
-  c2: { state: "review", note: { en: "Business verification pending", bn: "ব্যবসা যাচাই বাকি" } },
-  c3: { state: "restricted", note: { en: "New posts blocked — expired trade licence", bn: "নতুন পোস্ট বন্ধ — ট্রেড লাইসেন্সের মেয়াদ শেষ" } },
+  c2: { state: "active", note: { en: "Payment method added, first deposit cleared", bn: "পেমেন্ট মেথড যোগ, প্রথম জমা সফল" } },
+  c3: { state: "restricted", note: { en: "New posts paused — two deposits failed, no working payment method", bn: "নতুন পোস্ট থামানো — দুইবার জমা ব্যর্থ, কার্যকর পেমেন্ট মেথড নেই" } },
 };
 
 export const STUDENT_STATE: Record<string, { state: AccountState; note: L }> = {
@@ -390,3 +488,25 @@ export const STUDENT_STATE: Record<string, { state: AccountState; note: L }> = {
 };
 
 export const paymentById = (id: string) => PAYMENTS.find((p) => p.id === id);
+
+/** A student's own verification record — the gate before they can do any trial. */
+export const kycForSubject = (subjectId: string) => KYC.find((k) => k.subjectId === subjectId);
+
+/** The three steps that make up a student account. */
+export const STUDENT_ONBOARDING: { key: string; title: L; detail: L }[] = [
+  {
+    key: "account",
+    title: { en: "Create the account", bn: "অ্যাকাউন্ট খুলুন" },
+    detail: { en: "Name, university, discipline and the skills you want to be matched on.", bn: "নাম, বিশ্ববিদ্যালয়, বিষয় আর যেসব স্কিলে ম্যাচ চান।" },
+  },
+  {
+    key: "documents",
+    title: { en: "Upload your recommendation letter", bn: "সুপারিশপত্র আপলোড করুন" },
+    detail: { en: "A letter from your department or a teacher, on letterhead, signed and sealed — plus your student ID, NID and a payout account.", bn: "বিভাগ বা কোনো শিক্ষকের চিঠি, লেটারহেডে, স্বাক্ষর ও সিলসহ — সাথে স্টুডেন্ট আইডি, এনআইডি ও একটি পেআউট অ্যাকাউন্ট।" },
+  },
+  {
+    key: "verified",
+    title: { en: "A coordinator verifies it", bn: "কোঅর্ডিনেটর যাচাই করেন" },
+    detail: { en: "They read the letter and call the number on it. Until that is done you can browse tasks but you cannot do a trial.", bn: "তাঁরা চিঠিটি পড়েন আর তাতে দেওয়া নম্বরে ফোন করেন। এটা শেষ না হওয়া পর্যন্ত আপনি টাস্ক দেখতে পারবেন, কিন্তু ট্রায়াল করতে পারবেন না।" },
+  },
+];

@@ -21,8 +21,8 @@ const POINTS = [
   {
     t: { en: "Four-sided ecosystems die at launch", bn: "চার-পাক্ষিক ইকোসিস্টেম লঞ্চেই মরে" },
     d: {
-      en: "Businesses, students, mentors and universities all at once is the standard failure pattern for marketplaces. You bootstrap one side first.",
-      bn: "ব্যবসা, ছাত্র, মেন্টর ও ইউনিভার্সিটি একসাথে — এটাই মার্কেটপ্লেসের চেনা ব্যর্থতার প্যাটার্ন। একটা পক্ষ দিয়ে বুটস্ট্র্যাপ করতে হয়।",
+      en: "Businesses, students and universities all at once is the standard failure pattern for marketplaces. You bootstrap one side first.",
+      bn: "ব্যবসা, ছাত্র ও ইউনিভার্সিটি একসাথে — এটাই মার্কেটপ্লেসের চেনা ব্যর্থতার প্যাটার্ন। একটা পক্ষ দিয়ে বুটস্ট্র্যাপ করতে হয়।",
     },
   },
   {
@@ -33,10 +33,10 @@ const POINTS = [
     },
   },
   {
-    t: { en: "Unpaid mentors evaporate", bn: "বিনা পারিশ্রমিকের মেন্টর হারিয়ে যান" },
+    t: { en: "A volunteer quality layer evaporates", bn: "স্বেচ্ছাসেবী কোয়ালিটি লেয়ার হারিয়ে যায়" },
     d: {
-      en: "Multiple similar programmes have watched mentor supply dry up. Mentors get referral rights and hiring priority from day one, stipends once revenue exists.",
-      bn: "একাধিক সমজাতীয় প্রোগ্রামে মেন্টর সাপ্লাই শুকিয়ে যেতে দেখা গেছে। মেন্টররা প্রথম দিন থেকেই রেফারেল ও হায়ারিং প্রায়োরিটি পান, রেভিনিউ এলে স্টাইপেন্ড।",
+      en: "Similar programmes leaned on unpaid experts to check the work and ran out of them. Here the checking is one paid coordinator role, and the AI does the first pass so a human review takes minutes.",
+      bn: "সমজাতীয় প্রোগ্রামগুলো কাজ যাচাইয়ের জন্য বিনা পারিশ্রমিকের বিশেষজ্ঞদের ওপর নির্ভর করে তাঁদের হারিয়েছে। এখানে যাচাই একটি বেতনভুক্ত কোঅর্ডিনেটরের কাজ, আর প্রথম দফা মূল্যায়ন এআই করে — তাই মানুষের রিভিউ কয়েক মিনিটেই হয়।",
     },
   },
 ];

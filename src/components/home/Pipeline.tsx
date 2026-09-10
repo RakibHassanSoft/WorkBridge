@@ -33,13 +33,13 @@ const STEPS: Step[] = [
   {
     icon: Cpu,
     kicker: { en: "AI layer", bn: "এআই লেয়ার" },
-    title: { en: "AI separates it into small, priced, sequenced tasks", bn: "এআই সেটাকে ছোট, নির্ধারিত দামের, ধাপে সাজানো টাস্কে ভাগ করে" },
+    title: { en: "AI turns it into one priced task with a written test", bn: "এআই সেটাকে একটি নির্ধারিত দামের কাজ ও একটি লিখিত পরীক্ষায় রূপ দেয়" },
     desc: {
       en: "The model reads the brief, splits genuinely separate problems apart, prices each piece against completed-work history, orders them by dependency, and writes acceptance criteria a student can be judged against.",
       bn: "মডেল ব্রিফ পড়ে, সত্যিকারের আলাদা সমস্যাগুলো পৃথক করে, সম্পন্ন কাজের ইতিহাসের সাথে মিলিয়ে প্রতিটি অংশের দাম ঠিক করে, নির্ভরতা অনুযায়ী ক্রম সাজায়, আর এমন গ্রহণযোগ্যতার শর্ত লেখে যার ভিত্তিতে শিক্ষার্থীকে মূল্যায়ন করা যায়।",
     },
     bullets: {
-      en: ["Dependency-ordered task graph", "Per-task fee, hours and difficulty", "Risks and unknowns surfaced, not hidden"],
+      en: ["One task, one fee, one estimate — never a project plan", "A short trial that mirrors the real work", "Risks and unknowns surfaced, not hidden"],
       bn: ["নির্ভরতা অনুযায়ী সাজানো টাস্ক গ্রাফ", "প্রতি টাস্কে ফি, সময় ও কঠিনতা", "ঝুঁকি ও অজানা বিষয় লুকানো নয়, সামনে আনা"],
     },
     ai: true,
@@ -75,13 +75,13 @@ const STEPS: Step[] = [
   {
     icon: CheckCircle2,
     kicker: { en: "Verification", bn: "ভেরিফিকেশন" },
-    title: { en: "A mentor scores it. The client signs it. Both, or it doesn't count.", bn: "মেন্টর স্কোর দেন। ক্লায়েন্ট সাইন করেন। দুটোই, নাহলে গণনা হয় না।" },
+    title: { en: "A coordinator scores it. The client signs it. Both, or it doesn't count.", bn: "কোঅর্ডিনেটর স্কোর দেন। ক্লায়েন্ট সাইন করেন। দুটোই, নাহলে গণনা হয় না।" },
     desc: {
       en: "Work is scored against a per-sector rubric — a marketing task and a coding task do not share a definition of done. No self-claim ever becomes a verified record.",
       bn: "কাজ মূল্যায়ন হয় সেক্টরভিত্তিক রুব্রিকে — একটা মার্কেটিং টাস্ক আর একটা কোডিং টাস্কের 'সম্পন্ন'-এর সংজ্ঞা এক নয়। কোনো self-claim কখনো ভেরিফায়েড রেকর্ড হয় না।",
     },
     bullets: {
-      en: ["Five scored dimensions per sector", "Mentor note plus client sign-off", "Revisions are recorded, not erased"],
+      en: ["Five scored dimensions per sector", "Coordinator note plus client sign-off", "Revisions are recorded, not erased"],
       bn: ["প্রতি সেক্টরে পাঁচটি স্কোরড ডাইমেনশন", "মেন্টরের নোট ও ক্লায়েন্টের সাইন-অফ", "রিভিশন মুছে ফেলা হয় না, রেকর্ড থাকে"],
     },
     ai: false,

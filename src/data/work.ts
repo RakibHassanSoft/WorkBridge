@@ -1,8 +1,14 @@
+import type { L } from "@/lib/i18n";
 import type { Evaluation, Job, Task } from "./types";
 
 /* ────────────────────────────────────────────────────────────────
-   Demo jobs — a client's raw problem statement, the AI's scope,
-   and the task graph the AI decomposed it into.
+   Demo problems.
+
+   One problem, one task, one price. The AI reads the client's own
+   words and returns a single piece of work with a fee, an estimate
+   and acceptance criteria — it does not split a problem into a
+   dependency chain of sub-tasks. A shop owner who wanted one thing
+   fixed should not be handed a project plan.
    ──────────────────────────────────────────────────────────────── */
 
 export const JOBS: Job[] = [
@@ -10,177 +16,193 @@ export const JOBS: Job[] = [
     id: "j1",
     ref: "WB-2481",
     clientId: "c1",
-    title: { en: "Online orders keep failing and we can't see what sells", bn: "অনলাইন অর্ডার বারবার ফেল করছে, কী বিক্রি হচ্ছে বোঝা যাচ্ছে না" },
+    title: { en: "One in four customers never finishes paying", bn: "প্রতি চারজন কাস্টমারের একজন টাকা দেওয়াই শেষ করেন না" },
     brief: {
-      en: "About one in four customers drops off at checkout on our website and we don't know why. We also have no idea which of our 240 products actually sell — we guess from memory when we reorder fabric. We're a 9-person boutique, we don't have a tech person.",
-      bn: "আমাদের ওয়েবসাইটে প্রতি চারজন কাস্টমারের একজন চেকআউটে গিয়ে চলে যায়, কেন জানি না। আমাদের ২৪০টি প্রোডাক্টের মধ্যে আসলে কোনটা বিক্রি হয় সেটাও জানি না — কাপড় রিঅর্ডারের সময় স্মৃতি থেকে অনুমান করি। আমরা ৯ জনের একটা বুটিক, আমাদের কোনো টেক লোক নেই।",
+      en: "People put things in the basket and then just vanish at the payment step. It has been happening for about two months. We are a 9-person boutique and we do not have a tech person to look at it.",
+      bn: "মানুষ ঝুড়িতে জিনিস নেয়, তারপর পেমেন্টের ধাপে গিয়ে হারিয়ে যায়। প্রায় দুই মাস ধরে এটা হচ্ছে। আমরা ৯ জনের একটা বুটিক, দেখার মতো কোনো টেক লোক নেই।",
     },
     sectorId: "it",
-    budget: 24000,
+    budget: 6000,
     postedLabel: { en: "Posted 6 days ago", bn: "৬ দিন আগে পোস্ট করা" },
-    status: "active",
+    status: "delivered",
     ai: {
       summary: {
-        en: "Two separable problems in one brief: a broken conversion funnel and an absent sales-reporting layer. Split so the revenue leak is fixed first, then reporting is built on clean data. No new platform needed — instrument the existing store.",
-        bn: "একটি ব্রিফে দুটি আলাদা সমস্যা: ভাঙা কনভার্সন ফানেল এবং সেলস-রিপোর্টিং লেয়ারের অনুপস্থিতি। ভাগ করা হয়েছে যাতে আগে রেভিনিউ লিক বন্ধ হয়, পরে পরিষ্কার ডেটার ওপর রিপোর্টিং দাঁড়ায়। নতুন প্ল্যাটফর্ম লাগবে না — বিদ্যমান স্টোরেই ইনস্ট্রুমেন্ট বসবে।",
+        en: "The payment gateway's callback is failing silently, so a paid order never registers and the customer sees nothing. One job: repair the callback and put a readable message on every failure path.",
+        bn: "পেমেন্ট গেটওয়ের কলব্যাক নীরবে ব্যর্থ হচ্ছে, ফলে টাকা দেওয়া অর্ডার নথিভুক্তই হয় না আর কাস্টমার কিছুই দেখেন না। একটাই কাজ: কলব্যাক ঠিক করা আর প্রতিটি ব্যর্থতার পথে পড়ার মতো বার্তা বসানো।",
       },
       complexity: "Medium",
       confidence: 91,
-      estHours: 38,
-      suggestedFee: 22400,
+      estHours: 10,
+      suggestedFee: 6000,
       risks: {
         en: [
-          "Checkout failure may be a payment-gateway issue outside the store — task 1 diagnoses before anyone builds.",
-          "Product catalogue is likely inconsistent; reporting is unreliable until it is normalised.",
-          "Client has no staging site — mentor must approve any live change.",
+          "The fault may sit with the gateway rather than the store — the first hour is spent proving which.",
+          "There is no staging site, so a coordinator approves any change that touches the live checkout.",
         ],
         bn: [
-          "চেকআউট ফেইলিওর স্টোরের বাইরে পেমেন্ট গেটওয়ের সমস্যা হতে পারে — টাস্ক ১ বানানোর আগেই নির্ণয় করবে।",
-          "প্রোডাক্ট ক্যাটালগ সম্ভবত অসামঞ্জস্যপূর্ণ; নরমালাইজ না হওয়া পর্যন্ত রিপোর্টিং নির্ভরযোগ্য নয়।",
-          "ক্লায়েন্টের স্টেজিং সাইট নেই — লাইভ পরিবর্তনে মেন্টরের অনুমোদন লাগবে।",
+          "দোষটা স্টোরের নয়, গেটওয়ের হতে পারে — প্রথম ঘণ্টাটা কোনটা তা প্রমাণেই যাবে।",
+          "স্টেজিং সাইট নেই, তাই লাইভ চেকআউট ছোঁয় এমন যেকোনো পরিবর্তনে কোঅর্ডিনেটরের অনুমোদন লাগবে।",
         ],
       },
-      skills: ["Analytics", "JavaScript", "Data cleaning", "Dashboards", "QA"],
+      skills: ["JavaScript", "Payments", "QA"],
     },
-    taskIds: ["t1", "t2", "t3", "t4", "t5"],
+    taskIds: ["t2"],
   },
   {
-    id: "j2",
-    ref: "WB-2503",
-    clientId: "c2",
-    title: { en: "Bring social media in-house instead of paying an agency", bn: "এজেন্সিকে টাকা না দিয়ে সোশ্যাল মিডিয়া নিজেরাই চালাতে চাই" },
-    brief: {
-      en: "We pay an agency ৳25,000 a month and get 12 posts we don't like. We have 4 outlets and a decent camera. We want a month of content we can shoot ourselves, and to finally know if any of it drives orders.",
-      bn: "আমরা এজেন্সিকে মাসে ৳২৫,০০০ দিই আর ১২টা পোস্ট পাই যা আমাদের পছন্দ হয় না। আমাদের ৪টি আউটলেট আর একটা ভালো ক্যামেরা আছে। আমরা এক মাসের কনটেন্ট চাই যা নিজেরাই শুট করতে পারব, আর জানতে চাই এতে আসলে অর্ডার বাড়ে কিনা।",
-    },
-    sectorId: "mkt",
-    budget: 12000,
-    postedLabel: { en: "Posted 2 days ago", bn: "২ দিন আগে পোস্ট করা" },
-    status: "matching",
-    ai: {
-      summary: {
-        en: "A capability-transfer job, not a content job. The deliverable that matters is a repeatable system the outlet manager can run alone in month two — so a shoot guide and a measurement sheet are weighted above the posts themselves.",
-        bn: "এটি কনটেন্ট নয়, সক্ষমতা-হস্তান্তরের কাজ। আসল ডেলিভারেবল এমন একটি পুনরাবৃত্তিযোগ্য সিস্টেম যা দ্বিতীয় মাসে আউটলেট ম্যানেজার একাই চালাতে পারবেন — তাই শুট গাইড ও মেজারমেন্ট শিটকে পোস্টের চেয়ে বেশি গুরুত্ব দেওয়া হয়েছে।",
-      },
-      complexity: "Low",
-      confidence: 87,
-      estHours: 22,
-      suggestedFee: 11400,
-      risks: {
-        en: [
-          "Client owns no brand guideline — a one-page style sheet has to be created first.",
-          "Attribution will be approximate; a single-channel coupon code is the honest measurement.",
-        ],
-        bn: [
-          "ক্লায়েন্টের কোনো ব্র্যান্ড গাইডলাইন নেই — প্রথমে এক পৃষ্ঠার স্টাইল শিট বানাতে হবে।",
-          "অ্যাট্রিবিউশন আনুমানিক হবে; একটি চ্যানেল-নির্দিষ্ট কুপন কোডই সৎ পরিমাপ।",
-        ],
-      },
-      skills: ["Content strategy", "Bangla copy", "Photography direction", "Analytics"],
-    },
-    taskIds: ["t6", "t7", "t8", "t9"],
-  },
-  {
-    id: "j3",
-    ref: "WB-2517",
-    clientId: "c3",
-    title: { en: "Three seasons of farmer records are sitting in paper registers", bn: "তিন মৌসুমের কৃষক রেকর্ড কাগজের রেজিস্টারে পড়ে আছে" },
-    brief: {
-      en: "We supply seed and fertiliser to about 600 farmers in Bogura. Everything is written in registers. We can't tell who buys regularly, who has stopped, or what we should stock next season.",
-      bn: "আমরা বগুড়ায় প্রায় ৬০০ কৃষককে বীজ ও সার সরবরাহ করি। সবকিছু রেজিস্টারে লেখা। কে নিয়মিত কেনে, কে বন্ধ করে দিয়েছে, বা আগামী মৌসুমে কী স্টক করা উচিত — কিছুই বলতে পারি না।",
-    },
-    sectorId: "admin",
-    budget: 9500,
-    postedLabel: { en: "Posted 11 days ago", bn: "১১ দিন আগে পোস্ট করা" },
-    status: "review",
-    ai: {
-      summary: {
-        en: "Classic digitisation-then-insight job. Sequenced strictly: schema before entry, double-entry verification on a 10% sample before any analysis, and a template the client's own staff can keep filling.",
-        bn: "সাধারণ ডিজিটাইজেশন-তারপর-অন্তর্দৃষ্টির কাজ। কঠোরভাবে ধাপে সাজানো: এন্ট্রির আগে স্কিমা, বিশ্লেষণের আগে ১০% নমুনায় ডাবল-এন্ট্রি যাচাই, আর এমন টেমপ্লেট যা ক্লায়েন্টের নিজের কর্মীরাই ভরে যেতে পারবেন।",
-      },
-      complexity: "Low",
-      confidence: 94,
-      estHours: 31,
-      suggestedFee: 9200,
-      risks: {
-        en: [
-          "Handwriting quality varies by register — a 30-page sample is transcribed first to price the rest honestly.",
-          "Farmer names repeat with spelling variants; fuzzy de-duplication needs a human decision rule.",
-        ],
-        bn: [
-          "রেজিস্টার ভেদে হাতের লেখার মান আলাদা — বাকিটা সৎভাবে মূল্য নির্ধারণের জন্য প্রথমে ৩০ পৃষ্ঠার নমুনা লেখা হবে।",
-          "কৃষকের নাম বানানভেদে পুনরাবৃত্ত হয়; ফাজি ডি-ডুপ্লিকেশনে মানুষের সিদ্ধান্তের নিয়ম লাগবে।",
-        ],
-      },
-      skills: ["Data entry", "Excel", "Data cleaning", "Bangla transcription"],
-    },
-    taskIds: ["t10", "t11", "t12", "t13"],
-  },
-  {
-    id: "j4",
-    ref: "WB-2534",
+    id: "j7",
+    ref: "WB-2560",
     clientId: "c1",
-    title: { en: "Eid packaging and gift-set labels need a refresh", bn: "ঈদের প্যাকেজিং ও গিফট-সেট লেবেল নতুন করে দরকার" },
+    title: { en: "I cannot tell what actually sells each week", bn: "সপ্তাহে আসলে কী বিক্রি হচ্ছে বুঝতে পারি না" },
     brief: {
-      en: "Our packaging looks the same as three years ago. We need something that photographs well for Instagram and still prints cheap at our local press.",
-      bn: "আমাদের প্যাকেজিং তিন বছর আগের মতোই দেখায়। এমন কিছু দরকার যা ইনস্টাগ্রামে ভালো ছবি হয়, আবার স্থানীয় প্রেসে সস্তায় ছাপা যায়।",
+      en: "When I reorder fabric I am guessing from memory. I want one page I can open on my phone that tells me what moved this week and what is about to run out.",
+      bn: "কাপড় রিঅর্ডার করার সময় আমি স্মৃতি থেকে অনুমান করি। আমি এমন একটা পাতা চাই যেটা ফোনে খুলে দেখব — এই সপ্তাহে কী গেছে আর কী ফুরিয়ে আসছে।",
     },
-    sectorId: "design",
-    budget: 8000,
-    postedLabel: { en: "Posted 1 day ago", bn: "১ দিন আগে পোস্ট করা" },
-    status: "scoping",
+    sectorId: "it",
+    budget: 7500,
+    postedLabel: { en: "Posted 4 days ago", bn: "৪ দিন আগে পোস্ট করা" },
+    status: "active",
     ai: {
       summary: {
-        en: "Constraint-led design brief: the print budget and a two-colour local press are the real specification. Scoped so press feasibility is confirmed before any concept is polished.",
-        bn: "সীমাবদ্ধতা-নির্ভর ডিজাইন ব্রিফ: প্রিন্ট বাজেট ও দুই-রঙা স্থানীয় প্রেসই আসল স্পেসিফিকেশন। এমনভাবে সাজানো যাতে কোনো কনসেপ্ট পালিশ করার আগেই প্রেস সম্ভাব্যতা নিশ্চিত হয়।",
+        en: "A single read-only page over the store's existing order data. No new platform, no migration — the numbers already exist, nobody has ever put them on one screen.",
+        bn: "স্টোরের বিদ্যমান অর্ডার ডেটার ওপর একটিমাত্র রিড-অনলি পাতা। নতুন প্ল্যাটফর্ম নয়, মাইগ্রেশন নয় — সংখ্যাগুলো আছেই, কেউ কখনো এক পর্দায় বসায়নি।",
       },
-      complexity: "Low",
-      confidence: 89,
-      estHours: 18,
-      suggestedFee: 7600,
+      complexity: "Medium",
+      confidence: 88,
+      estHours: 12,
+      suggestedFee: 7500,
       risks: {
-        en: ["Local press capability is unverified — a spec call is task 1.", "Client has no vector logo; a redraw may be needed."],
-        bn: ["স্থানীয় প্রেসের সক্ষমতা যাচাই হয়নি — স্পেক কল-ই টাস্ক ১।", "ক্লায়েন্টের ভেক্টর লোগো নেই; নতুন করে আঁকতে হতে পারে।"],
+        en: [
+          "Returns are recorded inconsistently, so the weekly total needs a rule agreed with the owner before anything is built.",
+          "It has to load on a phone over 4G, which rules out most chart libraries.",
+        ],
+        bn: [
+          "রিটার্ন অসামঞ্জস্যভাবে লেখা হয়, তাই কিছু বানানোর আগে সাপ্তাহিক হিসাবের নিয়ম মালিকের সাথে ঠিক করতে হবে।",
+          "৪জি-তে ফোনে লোড হতে হবে, ফলে বেশিরভাগ চার্ট লাইব্রেরি বাদ।",
+        ],
       },
-      skills: ["Packaging design", "Print prep", "Illustrator", "Photography direction"],
+      skills: ["Dashboards", "React", "Analytics"],
     },
-    taskIds: ["t14", "t15", "t16"],
+    taskIds: ["t4"],
   },
   {
-    id: "j5",
-    ref: "WB-2402",
+    id: "j9",
+    ref: "WB-2472",
     clientId: "c1",
-    title: { en: "Bangla product descriptions for 60 new items", bn: "৬০টি নতুন আইটেমের বাংলা প্রোডাক্ট ডেসক্রিপশন" },
+    title: { en: "Find out why the checkout is dropping people", bn: "চেকআউটে মানুষ কেন হারিয়ে যাচ্ছে, বের করুন" },
     brief: {
-      en: "Our new season has 60 pieces going online and the descriptions are one line each, copied from the tag. Customers ask us the same three questions in the inbox every single day. We want descriptions that answer those before anyone has to ask.",
-      bn: "নতুন সিজনের ৬০টি পিস অনলাইনে যাচ্ছে, প্রতিটির ডেসক্রিপশন ট্যাগ থেকে কপি করা এক লাইন। কাস্টমাররা প্রতিদিন ইনবক্সে একই তিনটি প্রশ্ন করেন। আমরা এমন ডেসক্রিপশন চাই যা প্রশ্ন করার আগেই উত্তর দেয়।",
+      en: "Before anybody changes anything on the site, I want to know what is actually going wrong and see it written down. I have been told three different things by three different people.",
+      bn: "সাইটে কেউ কিছু বদলানোর আগে আমি জানতে চাই আসলে কী ভুল হচ্ছে, আর সেটা লেখা দেখতে চাই। তিনজন মানুষ আমাকে তিন রকম কথা বলেছেন।",
     },
-    sectorId: "content",
-    budget: 9000,
+    sectorId: "it",
+    budget: 2500,
     postedLabel: { en: "Posted 3 weeks ago", bn: "৩ সপ্তাহ আগে পোস্ট করা" },
     status: "delivered",
     ai: {
       summary: {
-        en: "The real deliverable is a repeatable description template, not 60 pieces of prose. Scoped so the inbox questions are mined first and the template is proved on 10 items before the remaining 50 are written.",
-        bn: "আসল ডেলিভারেবল ৬০টি গদ্য নয়, একটি পুনরাবৃত্তিযোগ্য ডেসক্রিপশন টেমপ্লেট। এমনভাবে সাজানো যে আগে ইনবক্সের প্রশ্নগুলো বের করা হয়, ১০টি আইটেমে টেমপ্লেট প্রমাণিত হয়, তারপর বাকি ৫০টি লেখা হয়।",
+        en: "A diagnosis, not a fix. Reproduce the failure across devices and payment methods and hand back a written finding the owner can act on or take elsewhere.",
+        bn: "সমাধান নয়, নির্ণয়। বিভিন্ন ডিভাইস ও পেমেন্ট মেথডে ব্যর্থতাটি পুনরায় ঘটিয়ে লিখিত ফলাফল দেওয়া, যা নিয়ে মালিক কাজ করতে বা অন্য কোথাও যেতে পারেন।",
       },
       complexity: "Low",
-      confidence: 92,
-      estHours: 20,
-      suggestedFee: 8600,
+      confidence: 94,
+      estHours: 5,
+      suggestedFee: 2500,
       risks: {
-        en: [
-          "Fabric and care details may not exist in writing anywhere — the client has to supply them or they get left out.",
-          "Bangla and English versions must not drift apart as items are added later.",
-        ],
-        bn: [
-          "কাপড় ও যত্নের তথ্য কোথাও লিখিত না-ও থাকতে পারে — ক্লায়েন্টকে দিতে হবে, নইলে বাদ যাবে।",
-          "পরে আইটেম যোগ হলে বাংলা ও ইংরেজি সংস্করণ যেন আলাদা হয়ে না যায়।",
-        ],
+        en: ["The fault may not reproduce on every device — the finding has to say honestly what could not be tested."],
+        bn: ["প্রতিটি ডিভাইসে ত্রুটিটি নাও ঘটতে পারে — কী পরীক্ষা করা যায়নি, ফলাফলে সৎভাবে লিখতে হবে।"],
       },
-      skills: ["Bangla copy", "SEO writing", "Editing"],
+      skills: ["QA", "Debugging"],
     },
-    taskIds: ["t17", "t18", "t19"],
+    taskIds: ["t1"],
+  },
+  {
+    id: "j5",
+    ref: "WB-2495",
+    clientId: "c1",
+    title: { en: "50 new items have no Bangla description", bn: "৫০টি নতুন আইটেমের বাংলা বর্ণনা নেই" },
+    brief: {
+      en: "The new season is up on the site with nothing written under it. My niece wrote a few and they were good, but she has exams now.",
+      bn: "নতুন সিজন সাইটে উঠেছে, নিচে কিছুই লেখা নেই। আমার ভাইঝি কয়েকটা লিখে দিয়েছিল, ভালো হয়েছিল, কিন্তু এখন তার পরীক্ষা।",
+    },
+    sectorId: "content",
+    budget: 4500,
+    postedLabel: { en: "Posted 2 weeks ago", bn: "২ সপ্তাহ আগে পোস্ট করা" },
+    status: "delivered",
+    ai: {
+      summary: {
+        en: "Writing to an existing voice, not inventing one. The few descriptions already on the site define the template; the work is applying it across the rest in both languages.",
+        bn: "নতুন কণ্ঠ বানানো নয়, বিদ্যমান কণ্ঠেই লেখা। সাইটে থাকা কয়েকটি বর্ণনাই টেমপ্লেট ঠিক করে দেয়; কাজ হলো বাকিগুলোতে দুই ভাষায় সেটা প্রয়োগ করা।",
+      },
+      complexity: "Low",
+      confidence: 93,
+      estHours: 10,
+      suggestedFee: 4500,
+      risks: {
+        en: ["Fabric names differ between the tag and the website — the writer has to ask rather than pick one."],
+        bn: ["ট্যাগ আর ওয়েবসাইটে কাপড়ের নাম আলাদা — লেখককে নিজে একটা বেছে না নিয়ে জিজ্ঞেস করতে হবে।"],
+      },
+      skills: ["Bangla writing", "Copywriting", "E-commerce"],
+    },
+    taskIds: ["t19"],
+  },
+  {
+    id: "j11",
+    ref: "WB-2488",
+    clientId: "c1",
+    title: { en: "The same three questions come in every single day", bn: "একই তিনটা প্রশ্ন প্রতিদিন আসে" },
+    brief: {
+      en: "My staff answer the same things on Messenger all day. I want to know exactly what people keep asking so we can just write it on the site.",
+      bn: "আমার কর্মীরা সারাদিন মেসেঞ্জারে একই জিনিস উত্তর দেয়। মানুষ ঠিক কী বারবার জিজ্ঞেস করে জানতে চাই, যাতে সাইটেই লিখে দিতে পারি।",
+    },
+    sectorId: "content",
+    budget: 1500,
+    postedLabel: { en: "Posted 5 weeks ago", bn: "৫ সপ্তাহ আগে পোস্ট করা" },
+    status: "delivered",
+    ai: {
+      summary: {
+        en: "Reading, counting and quoting — not summarising. The value is in the customers' own words, which is what the site copy then has to answer.",
+        bn: "সারসংক্ষেপ নয় — পড়া, গোনা ও উদ্ধৃত করা। মূল্য কাস্টমারের নিজের ভাষায়, আর সাইটের লেখাকে সেটারই উত্তর দিতে হবে।",
+      },
+      complexity: "Low",
+      confidence: 90,
+      estHours: 4,
+      suggestedFee: 1500,
+      risks: {
+        en: ["Customer messages contain phone numbers and addresses — nothing personal may leave the export."],
+        bn: ["কাস্টমারের বার্তায় ফোন নম্বর ও ঠিকানা থাকে — ব্যক্তিগত কিছুই এক্সপোর্টের বাইরে যাবে না।"],
+      },
+      skills: ["Research", "Bangla writing"],
+    },
+    taskIds: ["t17"],
+  },
+  {
+    id: "j4",
+    ref: "WB-2519",
+    clientId: "c1",
+    title: { en: "Eid gift boxes have to go to press and I do not know the specs", bn: "ঈদের গিফট বক্স ছাপাতে দিতে হবে, স্পেসিফিকেশন জানি না" },
+    brief: {
+      en: "The press keeps asking me questions I cannot answer — colours, board thickness, die-cut. I need someone to talk to them and come back with the answers written down.",
+      bn: "প্রেস আমাকে এমন সব প্রশ্ন করে যার উত্তর আমি জানি না — রঙ, বোর্ডের পুরুত্ব, ডাই-কাট। কেউ তাদের সাথে কথা বলে উত্তরগুলো লিখে এনে দিক।",
+    },
+    sectorId: "design",
+    budget: 1000,
+    postedLabel: { en: "Posted 3 days ago", bn: "৩ দিন আগে পোস্ট করা" },
+    status: "matching",
+    ai: {
+      summary: {
+        en: "A phone call and a written specification, done before any artwork exists. Cheap now, and it is what stops a whole print run being wrong later.",
+        bn: "কোনো আর্টওয়ার্ক তৈরির আগেই একটা ফোনকল ও একটি লিখিত স্পেসিফিকেশন। এখন সস্তা, আর এটাই পরে পুরো ছাপা ভুল হওয়া থামায়।",
+      },
+      complexity: "Low",
+      confidence: 89,
+      estHours: 2,
+      suggestedFee: 1000,
+      risks: {
+        en: ["Presses quote differently over the phone than in writing — the specification has to be confirmed by message."],
+        bn: ["প্রেস ফোনে আর লিখিতভাবে আলাদা দর বলে — স্পেসিফিকেশন বার্তায় নিশ্চিত করতে হবে।"],
+      },
+      skills: ["Print production", "Coordination"],
+    },
+    taskIds: ["t14"],
   },
   {
     id: "j6",
@@ -188,42 +210,173 @@ export const JOBS: Job[] = [
     clientId: "c1",
     title: { en: "Stockroom counts never match the system", bn: "স্টকরুমের গণনা সিস্টেমের সাথে কখনো মেলে না" },
     brief: {
-      en: "Every month our physical count is off from what the system says, sometimes by 30 or 40 pieces. Staff write transfers between the shop and the stockroom on a notepad. We do not want new software, we want to know where it is leaking.",
-      bn: "প্রতি মাসে আমাদের ফিজিক্যাল কাউন্ট সিস্টেমের সাথে মেলে না, কখনো ৩০-৪০ পিস পর্যন্ত। কর্মীরা দোকান ও স্টকরুমের মধ্যে ট্রান্সফার নোটপ্যাডে লেখেন। আমরা নতুন সফটওয়্যার চাই না, জানতে চাই লিকটা কোথায়।",
+      en: "Every month the count is off and nobody can say where it went. Transfers between the shop and the stockroom are written in a notepad.",
+      bn: "প্রতি মাসে গণনা মেলে না, কোথায় গেল কেউ বলতে পারে না। দোকান আর স্টকরুমের মধ্যে ট্রান্সফার একটা নোটপ্যাডে লেখা হয়।",
     },
     sectorId: "admin",
-    budget: 7000,
-    postedLabel: { en: "Posted 4 days ago", bn: "৪ দিন আগে পোস্ট করা" },
+    budget: 2000,
+    postedLabel: { en: "Posted yesterday", bn: "গতকাল পোস্ট করা" },
     status: "matching",
     ai: {
       summary: {
-        en: "Diagnosis before tooling. Scoped to reconstruct one month of movement from the notepads, locate where the discrepancy enters, and hand back a counting procedure — no software purchase implied.",
-        bn: "টুলের আগে নির্ণয়। নোটপ্যাড থেকে এক মাসের গতিবিধি পুনর্গঠন, অসঙ্গতি কোথায় ঢোকে তা শনাক্ত, আর একটি গণনা পদ্ধতি হস্তান্তর — কোনো সফটওয়্যার কেনার ইঙ্গিত নেই।",
+        en: "Rebuild one month from the notepad and line it up against the system. One month is enough to find the leak, and it costs a fraction of digitising a year.",
+        bn: "নোটপ্যাড থেকে এক মাস পুনর্গঠন করে সিস্টেমের সাথে মিলিয়ে দেখা। ফাঁকটা ধরতে এক মাসই যথেষ্ট, আর এক বছর ডিজিটাইজ করার তুলনায় খরচ সামান্য।",
       },
-      complexity: "Medium",
-      confidence: 84,
-      estHours: 24,
-      suggestedFee: 6800,
+      complexity: "Low",
+      confidence: 86,
+      estHours: 7,
+      suggestedFee: 2000,
       risks: {
         en: [
-          "Notepad records may be incomplete for some days; those gaps are reported, not estimated.",
-          "The cause may be behavioural rather than clerical, which is a management finding, not a data one.",
+          "The notepad may not cover every transfer — gaps have to be listed, not filled in from memory.",
+          "If the leak turns out to be theft rather than paperwork, that is the owner's matter, not the student's.",
         ],
         bn: [
-          "কিছু দিনের নোটপ্যাড রেকর্ড অসম্পূর্ণ থাকতে পারে; সেই ফাঁকগুলো অনুমান নয়, রিপোর্ট করা হবে।",
-          "কারণটি কেরানিগত নয়, আচরণগত হতে পারে — যা ডেটার নয়, ব্যবস্থাপনার ফলাফল।",
+          "নোটপ্যাডে হয়তো সব ট্রান্সফার নেই — ফাঁকগুলো স্মৃতি থেকে ভরাট না করে তালিকা করতে হবে।",
+          "ফাঁকটা যদি কাগজের ভুল নয় বরং চুরি হয়, সেটা মালিকের বিষয় — শিক্ষার্থীর নয়।",
         ],
       },
-      skills: ["Data cleaning", "Excel", "Process mapping"],
+      skills: ["Data entry", "Reconciliation", "Excel"],
     },
-    taskIds: ["t20", "t21", "t22"],
+    taskIds: ["t20"],
+  },
+  {
+    id: "j2",
+    ref: "WB-2503",
+    clientId: "c2",
+    title: { en: "Every outlet posts in a different style", bn: "প্রতিটি আউটলেট আলাদা স্টাইলে পোস্ট করে" },
+    brief: {
+      en: "We pay an agency and I still cannot tell our four outlets apart from anyone else's posts. I want one sheet the outlet managers can follow themselves.",
+      bn: "আমরা এজেন্সিকে টাকা দিই, তবু আমাদের চারটি আউটলেটের পোস্ট আর অন্যদের পোস্টে পার্থক্য বুঝি না। আমি এমন একটা শিট চাই যা আউটলেট ম্যানেজাররা নিজেরাই মানতে পারবেন।",
+    },
+    sectorId: "design",
+    budget: 2000,
+    postedLabel: { en: "Posted 2 days ago", bn: "২ দিন আগে পোস্ট করা" },
+    status: "matching",
+    ai: {
+      summary: {
+        en: "One page, not a brand book. Colours, typefaces, logo usage and photo mood locked from what the outlets already do well, so a manager with a phone can follow it.",
+        bn: "ব্র্যান্ড বুক নয়, এক পাতা। আউটলেটগুলো এখনই যা ভালো করে তা থেকেই রঙ, টাইপফেস, লোগোর ব্যবহার ও ছবির মেজাজ ঠিক করা — যাতে ফোন হাতে একজন ম্যানেজারও মানতে পারেন।",
+      },
+      complexity: "Low",
+      confidence: 92,
+      estHours: 4,
+      suggestedFee: 2000,
+      risks: {
+        en: ["The four outlets disagree about the logo colour — the sheet has to pick one and say why."],
+        bn: ["লোগোর রঙ নিয়ে চার আউটলেটের মত আলাদা — শিটকে একটা বেছে নিয়ে কারণ লিখতে হবে।"],
+      },
+      skills: ["Brand design", "Typography"],
+    },
+    taskIds: ["t6"],
+  },
+  {
+    id: "j10",
+    ref: "WB-2455",
+    clientId: "c3",
+    title: { en: "Nobody has agreed what a farmer record should even contain", bn: "কৃষকের রেকর্ডে আসলে কী থাকবে, কেউ ঠিকই করেনি" },
+    brief: {
+      en: "Before we type three seasons of registers into a computer, I want to be sure we are typing the right columns. Last time we did this the file was useless.",
+      bn: "তিন মৌসুমের রেজিস্টার কম্পিউটারে তোলার আগে নিশ্চিত হতে চাই, আমরা ঠিক কলামগুলোই তুলছি। গতবার এটা করে ফাইলটা অকেজো হয়েছিল।",
+    },
+    sectorId: "admin",
+    budget: 1500,
+    postedLabel: { en: "Posted 4 weeks ago", bn: "৪ সপ্তাহ আগে পোস্ট করা" },
+    status: "delivered",
+    ai: {
+      summary: {
+        en: "Agree the columns first, then prove them on a 30-page sample. Cheap insurance against typing 600 pages into a shape nobody can use.",
+        bn: "আগে কলাম ঠিক করা, তারপর ৩০ পাতার নমুনায় প্রমাণ করা। ৬০০ পাতা এমন একটা আকারে তোলার বিরুদ্ধে সস্তা বিমা, যা কেউ ব্যবহার করতে পারে না।",
+      },
+      complexity: "Low",
+      confidence: 91,
+      estHours: 4,
+      suggestedFee: 1500,
+      risks: {
+        en: ["Handwriting varies by register keeper — the sample must include the worst one, not the tidiest."],
+        bn: ["রেজিস্টার লেখকভেদে হাতের লেখা আলাদা — নমুনায় সবচেয়ে পরিপাটি নয়, সবচেয়ে খারাপটাই রাখতে হবে।"],
+      },
+      skills: ["Data modelling", "Data entry"],
+    },
+    taskIds: ["t10"],
+  },
+  {
+    id: "j3",
+    ref: "WB-2467",
+    clientId: "c3",
+    title: { en: "Three seasons of farmer records are sitting in paper registers", bn: "তিন মৌসুমের কৃষক রেকর্ড কাগজের রেজিস্টারে পড়ে আছে" },
+    brief: {
+      en: "Six hundred pages in a cupboard. If a farmer asks what he bought last season we have to send someone to look through them by hand.",
+      bn: "আলমারিতে ছয়শো পাতা। কোনো কৃষক গত মৌসুমে কী কিনেছিলেন জানতে চাইলে আমাদের একজনকে পাঠিয়ে হাতে খুঁজতে হয়।",
+    },
+    sectorId: "admin",
+    budget: 4000,
+    postedLabel: { en: "Posted 3 weeks ago", bn: "৩ সপ্তাহ আগে পোস্ট করা" },
+    status: "delivered",
+    ai: {
+      summary: {
+        en: "Volume work against an agreed schema, with a ten percent double-entry check. The check is what makes the file trustworthy enough to act on.",
+        bn: "সম্মত কাঠামোর বিপরীতে পরিমাণের কাজ, সাথে দশ শতাংশ ডাবল-এন্ট্রি যাচাই। এই যাচাইটাই ফাইলটিকে কাজে লাগানোর মতো নির্ভরযোগ্য করে।",
+      },
+      complexity: "Medium",
+      confidence: 90,
+      estHours: 16,
+      suggestedFee: 4000,
+      risks: {
+        en: [
+          "Illegible entries must be flagged, never guessed — a guessed row is worse than a blank one.",
+          "The registers cannot leave the office, so the work has to happen on site or from photographs.",
+        ],
+        bn: [
+          "অস্পষ্ট এন্ট্রি অনুমান নয়, চিহ্নিত করতে হবে — অনুমান করা সারি ফাঁকা সারির চেয়েও খারাপ।",
+          "রেজিস্টার অফিস ছেড়ে যাবে না, তাই কাজটা অফিসে বসে বা ছবি থেকে করতে হবে।",
+        ],
+      },
+      skills: ["Data entry", "Excel", "Accuracy"],
+    },
+    taskIds: ["t11"],
+  },
+  {
+    id: "j8",
+    ref: "WB-2538",
+    clientId: "c3",
+    title: { en: "What should we stock for next season?", bn: "আগামী মৌসুমে কী স্টক করা উচিত?" },
+    brief: {
+      en: "Now that the records are in a file, I want two pages telling me what to buy more of, what to drop, and which farmers stopped coming.",
+      bn: "রেকর্ডগুলো এখন ফাইলে আছে, তাই দুই পাতা চাই — কী বেশি কিনব, কী বাদ দেব, আর কোন কৃষকরা আসা বন্ধ করেছেন।",
+    },
+    sectorId: "agri",
+    budget: 1500,
+    postedLabel: { en: "Posted 8 days ago", bn: "৮ দিন আগে পোস্ট করা" },
+    status: "review",
+    ai: {
+      summary: {
+        en: "A short written recommendation an owner can act on in an afternoon, with the numbers behind each line shown rather than asserted.",
+        bn: "একটি সংক্ষিপ্ত লিখিত সুপারিশ, যা নিয়ে মালিক এক বিকেলেই কাজ করতে পারেন — প্রতিটি লাইনের পেছনের সংখ্যা দাবি নয়, দেখানো।",
+      },
+      complexity: "Low",
+      confidence: 84,
+      estHours: 4,
+      suggestedFee: 1500,
+      risks: {
+        en: [
+          "Three seasons is thin evidence for a trend — the note has to say where it is guessing.",
+          "A lapsed farmer may have moved away rather than gone to a competitor.",
+        ],
+        bn: [
+          "প্রবণতা বোঝার জন্য তিন মৌসুম কম প্রমাণ — নোটে লিখতে হবে কোথায় অনুমান করা হয়েছে।",
+          "কোনো কৃষক প্রতিযোগীর কাছে নয়, এলাকা ছেড়ে চলে গিয়ে থাকতে পারেন।",
+        ],
+      },
+      skills: ["Analysis", "Bangla writing", "Agribusiness"],
+    },
+    taskIds: ["t13"],
   },
 ];
 
 export const TASKS: Task[] = [
-  /* ── J1 ── */
   {
-    id: "t1", jobId: "j1", seq: 1,
+    id: "t1", jobId: "j9", seq: 1,
     title: { en: "Diagnose the checkout drop-off", bn: "চেকআউট ড্রপ-অফ নির্ণয় করা" },
     desc: { en: "Reproduce the failure across 3 devices and 2 payment methods, capture console + network errors, and write a one-page cause note.", bn: "৩টি ডিভাইস ও ২টি পেমেন্ট মেথডে সমস্যাটি পুনরায় ঘটানো, কনসোল ও নেটওয়ার্ক এরর ধরা, এবং এক পৃষ্ঠার কারণ-নোট লেখা।" },
     sectorId: "it", fee: 2500, hours: 5, level: "micro",
@@ -232,46 +385,23 @@ export const TASKS: Task[] = [
     acceptance: { en: ["Failure reproduced with evidence", "Root cause identified or ruled out", "Written in non-technical language"], bn: ["প্রমাণসহ সমস্যা পুনরায় ঘটানো", "মূল কারণ শনাক্ত বা বাতিল", "অ-কারিগরি ভাষায় লেখা"] },
   },
   {
-    id: "t2", jobId: "j1", seq: 2,
+    id: "t2", jobId: "j1", seq: 1,
     title: { en: "Fix the payment callback and add error messaging", bn: "পেমেন্ট কলব্যাক ঠিক করা ও এরর মেসেজ যোগ করা" },
-    desc: { en: "Repair the failing gateway callback identified in task 1 and replace silent failures with a clear Bangla + English message.", bn: "টাস্ক ১-এ শনাক্ত হওয়া গেটওয়ে কলব্যাক ঠিক করা এবং নীরব ব্যর্থতার বদলে স্পষ্ট বাংলা ও ইংরেজি বার্তা দেখানো।" },
+    desc: { en: "Repair the failing gateway callback and replace silent failures with a clear Bangla + English message.", bn: "টাস্ক ১-এ শনাক্ত হওয়া গেটওয়ে কলব্যাক ঠিক করা এবং নীরব ব্যর্থতার বদলে স্পষ্ট বাংলা ও ইংরেজি বার্তা দেখানো।" },
     sectorId: "it", fee: 6000, hours: 10, level: "standard",
     skills: ["JavaScript", "APIs"], status: "approved", assignee: "s1", progress: 100,
     dueLabel: { en: "Delivered day 5", bn: "৫ম দিনে ডেলিভার" },
     acceptance: { en: ["Test transaction completes end to end", "Failure states show a readable message", "No regression on mobile"], bn: ["টেস্ট লেনদেন শুরু থেকে শেষ সম্পন্ন", "ব্যর্থ অবস্থায় পাঠযোগ্য বার্তা", "মোবাইলে কোনো রিগ্রেশন নেই"] },
-    dependsOn: ["t1"],
   },
   {
-    id: "t3", jobId: "j1", seq: 3,
-    title: { en: "Normalise the 240-product catalogue", bn: "২৪০টি প্রোডাক্টের ক্যাটালগ নরমালাইজ করা" },
-    desc: { en: "De-duplicate variants, standardise category and size fields, and produce a clean export the reporting layer can trust.", bn: "ভ্যারিয়েন্ট ডি-ডুপ্লিকেট করা, ক্যাটাগরি ও সাইজ ফিল্ড স্ট্যান্ডার্ডাইজ করা, এবং রিপোর্টিং লেয়ার নির্ভর করতে পারে এমন পরিষ্কার এক্সপোর্ট তৈরি।" },
-    sectorId: "admin", fee: 3000, hours: 8, level: "micro",
-    skills: ["Data cleaning", "Excel"], status: "in_review", assignee: "s2", progress: 100,
-    dueLabel: { en: "In mentor review", bn: "মেন্টর রিভিউতে" },
-    acceptance: { en: ["Zero duplicate SKUs", "Every product has a category", "Change log included"], bn: ["কোনো ডুপ্লিকেট এসকেইউ নেই", "প্রতিটি প্রোডাক্টের ক্যাটাগরি আছে", "চেঞ্জ লগ সংযুক্ত"] },
-  },
-  {
-    id: "t4", jobId: "j1", seq: 4,
+    id: "t4", jobId: "j7", seq: 1,
     title: { en: "Build the weekly sales dashboard", bn: "সাপ্তাহিক সেলস ড্যাশবোর্ড তৈরি" },
     desc: { en: "A single page showing top and bottom sellers, week-on-week movement, and stock-out risk — readable on a phone.", bn: "এক পৃষ্ঠায় সর্বোচ্চ ও সর্বনিম্ন বিক্রি, সপ্তাহভিত্তিক পরিবর্তন এবং স্টক-আউট ঝুঁকি — ফোনে পড়ার মতো।" },
     sectorId: "it", fee: 7500, hours: 12, level: "standard",
     skills: ["Dashboards", "React"], status: "in_progress", assignee: "s1", progress: 55,
     dueLabel: { en: "Due in 3 days", bn: "৩ দিনের মধ্যে" },
     acceptance: { en: ["Loads in under 3 seconds on 4G", "Owner can read it without training", "Numbers reconcile with the store"], bn: ["৪জি-তে ৩ সেকেন্ডের কম লোড", "প্রশিক্ষণ ছাড়াই মালিক পড়তে পারেন", "সংখ্যা স্টোরের সাথে মেলে"] },
-    dependsOn: ["t3"],
   },
-  {
-    id: "t5", jobId: "j1", seq: 5,
-    title: { en: "Handover: 20-minute walkthrough + one-page guide", bn: "হ্যান্ডওভার: ২০ মিনিটের ওয়াকথ্রু ও এক পৃষ্ঠার গাইড" },
-    desc: { en: "Record a Bangla screen walkthrough and write a one-page guide so the owner can use everything without calling anyone.", bn: "বাংলায় স্ক্রিন ওয়াকথ্রু রেকর্ড করা এবং এক পৃষ্ঠার গাইড লেখা, যাতে মালিক কাউকে না ডেকেই সব ব্যবহার করতে পারেন।" },
-    sectorId: "content", fee: 2000, hours: 3, level: "micro",
-    skills: ["Bangla writing", "Screen recording"], status: "matching", progress: 0,
-    dueLabel: { en: "Starts after task 4", bn: "টাস্ক ৪-এর পরে শুরু" },
-    acceptance: { en: ["Video under 20 minutes", "Guide fits one printed page", "Owner confirms understanding"], bn: ["ভিডিও ২০ মিনিটের কম", "গাইড এক পৃষ্ঠায়", "মালিক বুঝেছেন বলে নিশ্চিত করেছেন"] },
-    dependsOn: ["t4"],
-  },
-
-  /* ── J2 ── */
   {
     id: "t6", jobId: "j2", seq: 1,
     title: { en: "One-page brand style sheet", bn: "এক পৃষ্ঠার ব্র্যান্ড স্টাইল শিট" },
@@ -282,37 +412,7 @@ export const TASKS: Task[] = [
     acceptance: { en: ["Fits on one page", "Uses only existing assets", "Print + screen colour values"], bn: ["এক পৃষ্ঠায়", "কেবল বিদ্যমান অ্যাসেট", "প্রিন্ট ও স্ক্রিন রঙের মান"] },
   },
   {
-    id: "t7", jobId: "j2", seq: 2,
-    title: { en: "30-day bilingual content calendar", bn: "৩০ দিনের দ্বিভাষিক কনটেন্ট ক্যালেন্ডার" },
-    desc: { en: "30 posts with Bangla and English captions, hook lines, and a shot list the outlet manager can execute.", bn: "৩০টি পোস্ট — বাংলা ও ইংরেজি ক্যাপশন, হুক লাইন এবং আউটলেট ম্যানেজার চালাতে পারবেন এমন শট লিস্ট।" },
-    sectorId: "content", fee: 4500, hours: 9, level: "standard",
-    skills: ["Bangla copy", "Content strategy"], status: "open", progress: 0,
-    dueLabel: { en: "Open — 7 candidates", bn: "খোলা — ৭ জন প্রার্থী" },
-    acceptance: { en: ["Every post has a shot instruction", "No caption over 220 characters", "At least 8 posts need no new photo"], bn: ["প্রতিটি পোস্টে শট নির্দেশনা", "কোনো ক্যাপশন ২২০ অক্ষরের বেশি নয়", "অন্তত ৮টি পোস্টে নতুন ছবি লাগবে না"] },
-    dependsOn: ["t6"],
-  },
-  {
-    id: "t8", jobId: "j2", seq: 3,
-    title: { en: "Phone photography guide for outlet staff", bn: "আউটলেট কর্মীদের জন্য ফোন ফটোগ্রাফি গাইড" },
-    desc: { en: "A visual guide showing 6 repeatable food shots using window light and a phone — no equipment purchase.", bn: "জানালার আলো ও ফোন দিয়ে ৬টি পুনরাবৃত্তিযোগ্য ফুড শটের ভিজ্যুয়াল গাইড — কোনো যন্ত্র কিনতে হবে না।" },
-    sectorId: "design", fee: 2500, hours: 5, level: "micro",
-    skills: ["Photography", "Layout"], status: "open", progress: 0,
-    dueLabel: { en: "Open — 3 candidates", bn: "খোলা — ৩ জন প্রার্থী" },
-    acceptance: { en: ["Shot before/after examples", "No paid equipment referenced", "Printable A4"], bn: ["আগে/পরে উদাহরণ", "কোনো পেইড যন্ত্রের উল্লেখ নেই", "এ৪-এ ছাপার উপযোগী"] },
-  },
-  {
-    id: "t9", jobId: "j2", seq: 4,
-    title: { en: "Attribution sheet with coupon-code tracking", bn: "কুপন-কোড ট্র্যাকিংসহ অ্যাট্রিবিউশন শিট" },
-    desc: { en: "A simple sheet linking each channel to a coupon code so the owner sees which posts actually created orders.", bn: "প্রতিটি চ্যানেলকে একটি কুপন কোডের সাথে যুক্ত করা সাধারণ শিট, যাতে মালিক দেখতে পান কোন পোস্ট আসলে অর্ডার এনেছে।" },
-    sectorId: "biz", fee: 2000, hours: 4, level: "micro",
-    skills: ["Excel", "Analytics"], status: "open", progress: 0,
-    dueLabel: { en: "Open — 5 candidates", bn: "খোলা — ৫ জন প্রার্থী" },
-    acceptance: { en: ["Works without any paid tool", "Staff can fill it in under 2 minutes daily", "Monthly summary auto-calculates"], bn: ["কোনো পেইড টুল ছাড়াই চলে", "কর্মীরা দৈনিক ২ মিনিটে ভরতে পারেন", "মাসিক সারসংক্ষেপ স্বয়ংক্রিয়"] },
-  },
-
-  /* ── J3 ── */
-  {
-    id: "t10", jobId: "j3", seq: 1,
+    id: "t10", jobId: "j10", seq: 1,
     title: { en: "Design the record schema + transcribe a 30-page sample", bn: "রেকর্ড স্কিমা ডিজাইন ও ৩০ পৃষ্ঠার নমুনা লেখা" },
     desc: { en: "Agree the columns with the client, then transcribe a representative sample to measure real time-per-page.", bn: "ক্লায়েন্টের সাথে কলাম চূড়ান্ত করা, তারপর প্রতিনিধিত্বমূলক নমুনা লিখে প্রতি পৃষ্ঠায় প্রকৃত সময় মাপা।" },
     sectorId: "admin", fee: 1500, hours: 4, level: "micro",
@@ -321,37 +421,23 @@ export const TASKS: Task[] = [
     acceptance: { en: ["Schema signed off by client", "Sample transcribed at 99% accuracy", "Time-per-page measured"], bn: ["ক্লায়েন্টের স্কিমা অনুমোদন", "নমুনা ৯৯% নির্ভুলতায় লেখা", "প্রতি পৃষ্ঠার সময় মাপা"] },
   },
   {
-    id: "t11", jobId: "j3", seq: 2,
+    id: "t11", jobId: "j3", seq: 1,
     title: { en: "Digitise 3 seasons of registers", bn: "৩ মৌসুমের রেজিস্টার ডিজিটাইজ" },
     desc: { en: "Enter all remaining pages into the agreed schema with a 10% double-entry verification pass.", bn: "বাকি সব পৃষ্ঠা নির্ধারিত স্কিমায় এন্ট্রি করা, ১০% ডাবল-এন্ট্রি যাচাইসহ।" },
     sectorId: "admin", fee: 4000, hours: 16, level: "standard",
     skills: ["Data entry", "Excel"], status: "approved", assignee: "s6", progress: 100,
     dueLabel: { en: "Delivered day 9", bn: "৯ম দিনে ডেলিভার" },
     acceptance: { en: ["≥99% accuracy on the verification sample", "No blank mandatory fields", "Source page number on every row"], bn: ["যাচাই নমুনায় ৯৯%+ নির্ভুলতা", "কোনো বাধ্যতামূলক ফিল্ড ফাঁকা নয়", "প্রতিটি সারিতে সোর্স পৃষ্ঠা নম্বর"] },
-    dependsOn: ["t10"],
   },
   {
-    id: "t12", jobId: "j3", seq: 3,
-    title: { en: "De-duplicate farmers and build the customer view", bn: "কৃষক ডি-ডুপ্লিকেট ও কাস্টমার ভিউ তৈরি" },
-    desc: { en: "Resolve spelling variants into single farmer records and produce active / lapsed / dormant segments.", bn: "বানানের ভিন্নতা মিলিয়ে একক কৃষক রেকর্ড তৈরি এবং সক্রিয় / নিষ্ক্রিয় / সুপ্ত সেগমেন্ট বের করা।" },
-    sectorId: "biz", fee: 2500, hours: 7, level: "standard",
-    skills: ["Data cleaning", "Excel"], status: "in_review", assignee: "s2", progress: 100,
-    dueLabel: { en: "In mentor review", bn: "মেন্টর রিভিউতে" },
-    acceptance: { en: ["Merge decisions documented", "Segments defined in writing", "Client can re-run the rule next season"], bn: ["মার্জ সিদ্ধান্ত নথিভুক্ত", "সেগমেন্টের লিখিত সংজ্ঞা", "আগামী মৌসুমে ক্লায়েন্ট নিজেই নিয়ম চালাতে পারবেন"] },
-    dependsOn: ["t11"],
-  },
-  {
-    id: "t13", jobId: "j3", seq: 4,
+    id: "t13", jobId: "j8", seq: 1,
     title: { en: "Next-season stocking recommendation", bn: "আগামী মৌসুমের স্টকিং সুপারিশ" },
     desc: { en: "A two-page note: what to stock more of, what to drop, and which lapsed farmers to call first.", bn: "দুই পৃষ্ঠার নোট: কী বেশি স্টক করতে হবে, কী বাদ দিতে হবে, আর কোন নিষ্ক্রিয় কৃষকদের আগে ফোন করতে হবে।" },
     sectorId: "agri", fee: 1500, hours: 4, level: "micro",
     skills: ["Analysis", "Bangla reporting"], status: "revision", assignee: "s6", progress: 80,
     dueLabel: { en: "Revision requested", bn: "রিভিশন চাওয়া হয়েছে" },
     acceptance: { en: ["Every claim traced to the data", "Written in Bangla", "Top 20 call list attached"], bn: ["প্রতিটি দাবি ডেটার সাথে যুক্ত", "বাংলায় লেখা", "শীর্ষ ২০ কল লিস্ট সংযুক্ত"] },
-    dependsOn: ["t12"],
   },
-
-  /* ── J4 ── */
   {
     id: "t14", jobId: "j4", seq: 1,
     title: { en: "Confirm press specification and constraints", bn: "প্রেস স্পেসিফিকেশন ও সীমাবদ্ধতা নিশ্চিত করা" },
@@ -362,29 +448,7 @@ export const TASKS: Task[] = [
     acceptance: { en: ["Written spec confirmed by press", "Cost per unit at 3 run sizes", "Any impossible option ruled out"], bn: ["প্রেস কর্তৃক নিশ্চিত লিখিত স্পেক", "৩টি রান সাইজে ইউনিট খরচ", "অসম্ভব অপশন বাদ"] },
   },
   {
-    id: "t15", jobId: "j4", seq: 2,
-    title: { en: "Three packaging concepts within the press spec", bn: "প্রেস স্পেকের মধ্যে তিনটি প্যাকেজিং কনসেপ্ট" },
-    desc: { en: "Three distinct directions, each rendered flat and mocked on a photographed box.", bn: "তিনটি আলাদা দিক, প্রতিটি ফ্ল্যাট রেন্ডার ও ছবি তোলা বাক্সে মকআপ।" },
-    sectorId: "design", fee: 4000, hours: 10, level: "standard",
-    skills: ["Packaging design", "Illustrator"], status: "matching", progress: 0,
-    dueLabel: { en: "Starts after task 1", bn: "টাস্ক ১-এর পরে শুরু" },
-    acceptance: { en: ["All three printable within spec", "Bangla and English lockups", "Editable source files"], bn: ["তিনটিই স্পেকের মধ্যে ছাপার উপযোগী", "বাংলা ও ইংরেজি লকআপ", "এডিটযোগ্য সোর্স ফাইল"] },
-    dependsOn: ["t14"],
-  },
-  {
-    id: "t16", jobId: "j4", seq: 3,
-    title: { en: "Print-ready files for the chosen concept", bn: "নির্বাচিত কনসেপ্টের প্রিন্ট-রেডি ফাইল" },
-    desc: { en: "Bleed, crop marks, colour separation and a packaged folder the press can open without questions.", bn: "ব্লিড, ক্রপ মার্ক, কালার সেপারেশন এবং প্রশ্ন ছাড়াই প্রেস খুলতে পারে এমন প্যাকেজড ফোল্ডার।" },
-    sectorId: "design", fee: 2500, hours: 6, level: "standard",
-    skills: ["Print prep", "Illustrator"], status: "matching", progress: 0,
-    dueLabel: { en: "Starts after task 2", bn: "টাস্ক ২-এর পরে শুরু" },
-    acceptance: { en: ["Press opens files without a callback", "3mm bleed on all edges", "Fonts outlined or packaged"], bn: ["প্রেস কল ছাড়াই ফাইল খোলে", "সব প্রান্তে ৩ মিমি ব্লিড", "ফন্ট আউটলাইন বা প্যাকেজড"] },
-    dependsOn: ["t15"],
-  },
-
-  /* ── J5 ── */
-  {
-    id: "t17", jobId: "j5", seq: 1,
+    id: "t17", jobId: "j11", seq: 1,
     title: { en: "Mine the inbox for the three repeated questions", bn: "ইনবক্স থেকে পুনরাবৃত্ত তিনটি প্রশ্ন বের করা" },
     desc: { en: "Read three months of customer messages and extract exactly what buyers ask before ordering.", bn: "তিন মাসের কাস্টমার বার্তা পড়ে বের করা, অর্ডারের আগে ক্রেতারা ঠিক কী জিজ্ঞেস করেন।" },
     sectorId: "content", fee: 1500, hours: 4, level: "micro",
@@ -393,27 +457,14 @@ export const TASKS: Task[] = [
     acceptance: { en: ["Questions ranked by frequency", "Quoted in the customer's own words", "Fits one page"], bn: ["ফ্রিকোয়েন্সি অনুযায়ী প্রশ্নের ক্রম", "কাস্টমারের নিজের ভাষায় উদ্ধৃত", "এক পৃষ্ঠায়"] },
   },
   {
-    id: "t18", jobId: "j5", seq: 2,
-    title: { en: "Build and prove the description template on 10 items", bn: "১০টি আইটেমে ডেসক্রিপশন টেমপ্লেট তৈরি ও প্রমাণ" },
-    desc: { en: "A bilingual template that answers the mined questions, written out for ten real products first.", bn: "একটি দ্বিভাষিক টেমপ্লেট যা বের করা প্রশ্নগুলোর উত্তর দেয়, প্রথমে দশটি বাস্তব প্রোডাক্টে লেখা।" },
-    sectorId: "content", fee: 2500, hours: 6, level: "standard",
-    skills: ["Bangla copy", "SEO writing"], status: "approved", assignee: "s3", progress: 100,
-    dueLabel: { en: "Delivered day 6", bn: "৬ষ্ঠ দিনে ডেলিভার" },
-    acceptance: { en: ["Template answers all three questions", "Bangla and English say the same thing", "Under 90 words per item"], bn: ["টেমপ্লেট তিনটি প্রশ্নেরই উত্তর দেয়", "বাংলা ও ইংরেজি একই কথা বলে", "প্রতি আইটেমে ৯০ শব্দের কম"] },
-    dependsOn: ["t17"],
-  },
-  {
-    id: "t19", jobId: "j5", seq: 3,
+    id: "t19", jobId: "j5", seq: 1,
     title: { en: "Write the remaining 50 descriptions", bn: "বাকি ৫০টি ডেসক্রিপশন লেখা" },
     desc: { en: "Apply the approved template across the rest of the new season, in both languages.", bn: "অনুমোদিত টেমপ্লেট নতুন সিজনের বাকি অংশে প্রয়োগ, দুই ভাষাতেই।" },
     sectorId: "content", fee: 4500, hours: 10, level: "standard",
     skills: ["Bangla copy", "Editing"], status: "approved", assignee: "s3", progress: 100,
     dueLabel: { en: "Delivered day 14", bn: "১৪তম দিনে ডেলিভার" },
     acceptance: { en: ["All 50 items covered", "Consistent with the approved template", "Uploaded in the client's format"], bn: ["৫০টি আইটেমই অন্তর্ভুক্ত", "অনুমোদিত টেমপ্লেটের সাথে সামঞ্জস্যপূর্ণ", "ক্লায়েন্টের ফরম্যাটে আপলোড"] },
-    dependsOn: ["t18"],
   },
-
-  /* ── J6 ── */
   {
     id: "t20", jobId: "j6", seq: 1,
     title: { en: "Reconstruct one month of stock movement", bn: "এক মাসের স্টক গতিবিধি পুনর্গঠন" },
@@ -423,31 +474,11 @@ export const TASKS: Task[] = [
     dueLabel: { en: "Matching now", bn: "এখন ম্যাচিং হচ্ছে" },
     acceptance: { en: ["Every notepad entry captured or flagged as illegible", "Dates aligned with system records", "No entry silently dropped"], bn: ["প্রতিটি নোটপ্যাড এন্ট্রি ধরা বা অস্পষ্ট হিসেবে চিহ্নিত", "তারিখ সিস্টেম রেকর্ডের সাথে সারিবদ্ধ", "কোনো এন্ট্রি নীরবে বাদ নয়"] },
   },
-  {
-    id: "t21", jobId: "j6", seq: 2,
-    title: { en: "Locate where the discrepancy enters", bn: "অসঙ্গতি কোথায় ঢোকে তা শনাক্তকরণ" },
-    desc: { en: "Trace the gap to a step in the process — receiving, transfer, sale or return — with the evidence for each candidate.", bn: "ফারাকটি প্রক্রিয়ার কোন ধাপে — গ্রহণ, ট্রান্সফার, বিক্রি না ফেরত — প্রতিটি সম্ভাবনার প্রমাণসহ চিহ্নিত করা।" },
-    sectorId: "admin", fee: 2500, hours: 9, level: "standard",
-    skills: ["Data cleaning", "Process mapping"], status: "matching", progress: 0,
-    dueLabel: { en: "Starts after task 1", bn: "টাস্ক ১-এর পরে শুরু" },
-    acceptance: { en: ["Each candidate step evidenced or ruled out", "Quantified, not described", "Written for a shop manager"], bn: ["প্রতিটি সম্ভাব্য ধাপ প্রমাণিত বা বাতিল", "বর্ণনা নয়, পরিমাণে", "দোকান ম্যানেজারের জন্য লেখা"] },
-    dependsOn: ["t20"],
-  },
-  {
-    id: "t22", jobId: "j6", seq: 3,
-    title: { en: "Counting procedure the staff can actually follow", bn: "কর্মীরা সত্যিই মানতে পারবেন এমন গণনা পদ্ধতি" },
-    desc: { en: "A one-page procedure and a printable transfer slip, tested once with the staff who will use it.", bn: "এক পৃষ্ঠার পদ্ধতি ও ছাপার উপযোগী ট্রান্সফার স্লিপ, যারা ব্যবহার করবেন তাদের সাথে একবার পরীক্ষিত।" },
-    sectorId: "admin", fee: 2000, hours: 6, level: "micro",
-    skills: ["Process mapping", "Bangla writing"], status: "matching", progress: 0,
-    dueLabel: { en: "Starts after task 2", bn: "টাস্ক ২-এর পরে শুরু" },
-    acceptance: { en: ["Tested with the actual staff once", "No step needs a computer", "Slip fits on a half page"], bn: ["প্রকৃত কর্মীদের সাথে একবার পরীক্ষিত", "কোনো ধাপে কম্পিউটার লাগে না", "স্লিপ আধা পৃষ্ঠায়"] },
-    dependsOn: ["t21"],
-  },
 ];
 
 export const EVALUATIONS: Evaluation[] = [
   {
-    id: "e1", taskId: "t2", studentId: "s1", mentorId: "m1",
+    id: "e1", taskId: "t2", studentId: "s1", reviewerId: "mod1",
     scores: [
       { dim: { en: "Requirement coverage", bn: "রিকোয়ারমেন্ট কভারেজ" }, score: 5, max: 5 },
       { dim: { en: "Code quality & structure", bn: "কোড কোয়ালিটি ও স্ট্রাকচার" }, score: 4, max: 5 },
@@ -455,7 +486,7 @@ export const EVALUATIONS: Evaluation[] = [
       { dim: { en: "Documentation", bn: "ডকুমেন্টেশন" }, score: 5, max: 5 },
       { dim: { en: "Handover readiness", bn: "হ্যান্ডওভার প্রস্তুতি" }, score: 5, max: 5 },
     ],
-    mentorNote: {
+    reviewerNote: {
       en: "Found the real cause — a timeout in the gateway callback, not the cart code everyone assumed. Error messages are written in plain Bangla, which matters more here than the fix itself.",
       bn: "আসল কারণ বের করেছেন — গেটওয়ে কলব্যাকের টাইমআউট, সবাই যে কার্ট কোডকে দায়ী ভেবেছিল সেটা নয়। এরর মেসেজ সহজ বাংলায় লেখা, যা এখানে ফিক্সের চেয়েও গুরুত্বপূর্ণ।",
     },
@@ -464,7 +495,7 @@ export const EVALUATIONS: Evaluation[] = [
     dateLabel: { en: "Signed off 4 days ago", bn: "৪ দিন আগে সাইন-অফ" },
   },
   {
-    id: "e2", taskId: "t11", studentId: "s6", mentorId: "m2",
+    id: "e2", taskId: "t11", studentId: "s6", reviewerId: "mod1",
     scores: [
       { dim: { en: "Accuracy rate", bn: "নির্ভুলতার হার" }, score: 5, max: 5 },
       { dim: { en: "Format consistency", bn: "ফরম্যাট সামঞ্জস্য" }, score: 5, max: 5 },
@@ -472,7 +503,7 @@ export const EVALUATIONS: Evaluation[] = [
       { dim: { en: "Confidentiality", bn: "গোপনীয়তা" }, score: 5, max: 5 },
       { dim: { en: "Speed", bn: "গতি" }, score: 4, max: 5 },
     ],
-    mentorNote: {
+    reviewerNote: {
       en: "99.4% on the verification sample across 1,180 rows. Flagged 26 illegible entries instead of guessing — exactly the right instinct.",
       bn: "১,১৮০ সারির যাচাই নমুনায় ৯৯.৪%। অনুমান না করে ২৬টি অস্পষ্ট এন্ট্রি চিহ্নিত করেছেন — ঠিক এই প্রবৃত্তিটাই দরকার।",
     },
@@ -480,7 +511,7 @@ export const EVALUATIONS: Evaluation[] = [
     dateLabel: { en: "Signed off 2 days ago", bn: "২ দিন আগে সাইন-অফ" },
   },
   {
-    id: "e3", taskId: "t19", studentId: "s3", mentorId: "m3",
+    id: "e3", taskId: "t19", studentId: "s3", reviewerId: "mod1",
     scores: [
       { dim: { en: "Factual accuracy", bn: "তথ্যগত নির্ভুলতা" }, score: 5, max: 5 },
       { dim: { en: "Language & tone", bn: "ভাষা ও টোন" }, score: 5, max: 5 },
@@ -488,7 +519,7 @@ export const EVALUATIONS: Evaluation[] = [
       { dim: { en: "Source citation", bn: "সোর্স উল্লেখ" }, score: 4, max: 5 },
       { dim: { en: "Turnaround discipline", bn: "সময়ানুবর্তিতা" }, score: 5, max: 5 },
     ],
-    mentorNote: {
+    reviewerNote: {
       en: "The template is the real deliverable here and it holds up — the client's own staff added twelve more items using it without asking a single question. The Bangla reads like a person wrote it, not a translation engine.",
       bn: "এখানে আসল ডেলিভারেবল টেমপ্লেটটাই, আর সেটা টিকেছে — ক্লায়েন্টের নিজের কর্মীরা কোনো প্রশ্ন না করেই আরও বারোটি আইটেম যোগ করেছেন। বাংলাটা অনুবাদ যন্ত্রের নয়, মানুষের লেখা মনে হয়।",
     },
@@ -502,3 +533,52 @@ export const jobById = (id: string) => JOBS.find((j) => j.id === id);
 export const taskById = (id: string) => TASKS.find((t) => t.id === id);
 export const tasksOfJob = (jobId: string) => TASKS.filter((t) => t.jobId === jobId).sort((a, b) => a.seq - b.seq);
 export const evaluationOfTask = (taskId: string) => EVALUATIONS.find((e) => e.taskId === taskId);
+
+/* ── What the client is actually signing off on ───────────────
+
+   A sign-off screen that shows a score but not the work is asking
+   someone to rubber-stamp a number. These are the files and the
+   student's own note, shown beside the rubric.
+   ──────────────────────────────────────────────────────────── */
+
+export type Deliverable = {
+  taskId: string;
+  files: { name: string; size: L }[];
+  note: L;
+  agreedInChat: L[];   // decisions made mid-task that changed the criteria
+};
+
+export const DELIVERABLES: Deliverable[] = [
+  {
+    taskId: "t2",
+    files: [
+      { name: "sales-clean-2024.xlsx", size: { en: "2.1 MB · 4,180 rows", bn: "২.১ এমবি · ৪,১৮০ সারি" } },
+      { name: "what-i-changed.md", size: { en: "3 KB", bn: "৩ কেবি" } },
+      { name: "walkthrough.mp4", size: { en: "6 min", bn: "৬ মিনিট" } },
+    ],
+    note: {
+      en: "Duplicates removed by invoice number, not by name — 61 rows differed only in spelling. Everything I could not resolve is on a separate sheet called 'check these', 34 rows in total. I did not guess any of them.",
+      bn: "নাম নয়, ইনভয়েস নম্বর ধরে ডুপ্লিকেট সরিয়েছি — ৬১টি সারিতে কেবল বানানের পার্থক্য ছিল। যা মেলাতে পারিনি সব 'check these' নামের আলাদা শিটে, মোট ৩৪টি সারি। কোনোটিই অনুমান করিনি।",
+    },
+    agreedInChat: [
+      { en: "Returns are counted as negative rows, not deleted — you confirmed this on day two", bn: "রিটার্ন মুছে না দিয়ে ঋণাত্মক সারি হিসেবে গণনা — দ্বিতীয় দিনে আপনি নিশ্চিত করেছেন" },
+      { en: "The 2022 file was dropped: you said the shop only reconciles two years back", bn: "২০২২ সালের ফাইল বাদ: আপনি বলেছেন দোকান দুই বছরের বেশি পেছনে হিসাব মেলায় না" },
+    ],
+  },
+  {
+    taskId: "t19",
+    files: [
+      { name: "campaign-brief-final.pdf", size: { en: "1.4 MB · 9 pages", bn: "১.৪ এমবি · ৯ পৃষ্ঠা" } },
+      { name: "posts-bangla-english.zip", size: { en: "18 files", bn: "১৮টি ফাইল" } },
+    ],
+    note: {
+      en: "Twelve posts in both languages, plus two spare captions for the Eid week. The Bangla copy is typeset, not pasted, so the text stays editable.",
+      bn: "দুই ভাষায় বারোটি পোস্ট, সাথে ঈদ সপ্তাহের জন্য দুটি বাড়তি ক্যাপশন। বাংলা লেখা পেস্ট করা নয়, টাইপসেট করা — তাই টেক্সট এডিটযোগ্য থাকে।",
+    },
+    agreedInChat: [
+      { en: "No prices in the artwork — you asked for a separate price card instead", bn: "আর্টওয়ার্কে কোনো দাম নয় — আপনি বদলে আলাদা প্রাইস কার্ড চেয়েছেন" },
+    ],
+  },
+];
+
+export const deliverableOf = (taskId: string) => DELIVERABLES.find((d) => d.taskId === taskId);

@@ -290,8 +290,8 @@ function DrawerBody({ task, onClose }: { task: Task; onClose: () => void }) {
         {/* actions */}
         <div className="mt-6 flex flex-wrap gap-2">
           {task.status === "open" ? (
-            <Button size="md" className="flex-1" icon={<Sparkles className="size-4" />}>
-              <T v={{ en: "Apply for this task", bn: "এই টাস্কে আবেদন" }} />
+            <Button size="md" href={`/tasks/${task.id}`} className="flex-1" icon={<Sparkles className="size-4" />}>
+              <T v={{ en: "See the trial task", bn: "ট্রায়াল টাস্ক দেখুন" }} />
             </Button>
           ) : (
             <span className="flex-1 rounded-[12px] bg-canvas-2 px-4 py-3 text-center text-[13px] text-ink-4 ring-1 ring-line">

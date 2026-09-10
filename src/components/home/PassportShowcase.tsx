@@ -30,7 +30,7 @@ export default function PassportShowcase() {
           <p className="mt-5 text-[16.5px] leading-relaxed text-ink-3">
             <T
               v={{
-                en: "Every signed-off task becomes a line on a public record the graduate owns — the sector rubric it was scored against, the mentor who checked it, and the business that paid for it. It travels: a verified badge on a job board profile, a real client sign-off instead of a courtesy recommendation.",
+                en: "Every signed-off task becomes a line on a public record the graduate owns — the sector rubric it was scored against, the coordinator who checked it, and the business that paid for it. It travels: a verified badge on a job board profile, a real client sign-off instead of a courtesy recommendation.",
                 bn: "সাইন-অফ হওয়া প্রতিটি টাস্ক একটি পাবলিক রেকর্ডে যুক্ত হয়, যার মালিক গ্র্যাজুয়েট নিজে — কোন সেক্টর রুব্রিকে মূল্যায়ন হয়েছে, কোন মেন্টর যাচাই করেছেন, আর কোন ব্যবসা টাকা দিয়েছে। এটা সাথে যায়: জব বোর্ড প্রোফাইলে ভেরিফায়েড ব্যাজ, সৌজন্যমূলক রেকমেন্ডেশনের বদলে real ক্লায়েন্টের সাইন-অফ।",
               }}
             />
@@ -121,7 +121,7 @@ export default function PassportShowcase() {
                   <p className="text-[12.5px] leading-relaxed text-ink-2">&ldquo;{t(ev.clientNote!)}&rdquo;</p>
                   <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-ink-4">
                     <BadgeCheck className="size-3.5 text-brand-600" />
-                    <T v={{ en: "Client sign-off + mentor review complete", bn: "ক্লায়েন্ট সাইন-অফ ও মেন্টর রিভিউ সম্পন্ন" }} />
+                    <T v={{ en: "Client sign-off + coordinator review complete", bn: "ক্লায়েন্ট সাইন-অফ ও কোঅর্ডিনেটর রিভিউ সম্পন্ন" }} />
                   </p>
                 </div>
               </div>

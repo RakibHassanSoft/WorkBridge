@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Bar, Button, Reveal, SectionHead } from "@/components/ui";
 import SectorIcon from "@/components/SectorIcon";
-import { priceCheck, scope, type ScopeResult } from "@/lib/engine";
+import { priceCheck, scopeOne, type SingleScope } from "@/lib/engine";
 import { sectorById } from "@/data/sectors";
 import { T, useLang, useNum, type L } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -178,7 +178,7 @@ export default function Intake() {
       {
         key: "outcome",
         question: { en: "What would make you say this worked?", bn: "কী হলে আপনি বলবেন কাজটা হয়েছে?" },
-        help: { en: "This becomes the acceptance criteria — what the mentor scores the work against.", bn: "এটাই গ্রহণযোগ্যতার শর্ত হয় — মেন্টর এর বিপরীতেই কাজ মূল্যায়ন করেন।" },
+        help: { en: "This becomes the acceptance criteria — what the work is scored against.", bn: "এটাই গ্রহণযোগ্যতার শর্ত হয় — এর বিপরীতেই কাজ মূল্যায়ন করা হয়।" },
         choices: OUTCOME[a],
       },
       {
@@ -219,10 +219,10 @@ export default function Intake() {
     return `${areaLabel}. ${symptomLabel}. There are around ${count} items involved. What I want is: ${outcomeLabel}.${urgentWord} ${note}`.trim();
   }, [area, symptom, scale, outcome, urgency, note, lang]);
 
-  const result: ScopeResult | null = useMemo(() => (done && brief ? scope(brief, { sectorId: AREAS.find((a) => a.id === area)?.sector }) : null), [done, brief, area]);
+  const result: SingleScope | null = useMemo(() => (done && brief ? scopeOne(brief, { sectorId: AREAS.find((a) => a.id === area)?.sector }) : null), [done, brief, area]);
 
   const clientBudget = BUDGET_VALUE[budget ?? "b4"] ?? 0;
-  const verdict = result ? priceCheck(clientBudget > 0 ? clientBudget : result.totalFee, result.totalHours, result.sectorId) : null;
+  const verdict = result ? priceCheck(clientBudget > 0 ? clientBudget : result.task.fee, result.task.hours, result.sectorId) : null;
 
   const reset = () => {
     setStep(0);
@@ -347,7 +347,7 @@ function IntakeResult({
   onReset,
 }: {
   brief: string;
-  result: ScopeResult;
+  result: SingleScope;
   verdict: ReturnType<typeof priceCheck>;
   clientBudget: number;
   onReset: () => void;
@@ -385,7 +385,7 @@ function IntakeResult({
             <div>
               <div className="text-[14.5px] font-semibold text-ink">{t(sector.name)}</div>
               <div className="num text-[12px] text-ink-4">
-                {n(result.tasks.length)} <T v={{ en: "tasks", bn: "টাস্ক" }} /> · {n(result.totalHours)}h · {result.complexity}
+                <T v={{ en: "one task", bn: "একটি কাজ" }} /> · {n(result.task.hours)}h · {result.complexity}
               </div>
             </div>
           </div>
@@ -395,7 +395,7 @@ function IntakeResult({
                 <Wallet className="size-3" />
                 <T v={{ en: "AI price", bn: "এআই দাম" }} />
               </div>
-              <div className="num mt-0.5 text-[19px] font-semibold text-ink">৳{n(result.totalFee.toLocaleString("en-US"))}</div>
+              <div className="num mt-0.5 text-[19px] font-semibold text-ink">৳{n(result.task.fee.toLocaleString("en-US"))}</div>
             </div>
             <div>
               <div className="flex items-center gap-1 text-[11px] text-ink-4">
@@ -409,28 +409,29 @@ function IntakeResult({
           </div>
         </div>
 
-        <ol className="mt-6 space-y-2">
-          {result.tasks.map((task) => (
-            <li key={task.id} className="flex items-start gap-3.5 rounded-[14px] border border-line p-4">
-              <span className="num mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-brand-50 text-[11px] font-semibold text-brand-700 ring-1 ring-brand-100">
-                {n(task.seq)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] font-medium leading-snug text-ink">{t(task.title)}</span>
-                <span className="num mt-1 block text-[11.5px] text-ink-4">
-                  ৳{n(task.fee.toLocaleString("en-US"))} · {n(task.hours)}h · {task.level}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ol>
+        <div className="mt-6 rounded-[14px] border border-line p-4">
+          <span className="block text-[14px] font-medium leading-snug text-ink">{t(result.task.title)}</span>
+          <span className="mt-1.5 block text-[12.5px] leading-relaxed text-ink-3">{t(result.task.desc)}</span>
+        </div>
+
+        <div className="mt-3 rounded-[14px] border border-brand-100 bg-brand-50/40 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-brand-700">
+              <T v={{ en: "The trial applicants will do", bn: "আবেদনকারীরা যে ট্রায়ালটি করবেন" }} />
+            </span>
+            <span className="num rounded-full bg-white px-2 py-0.5 text-[11px] text-ink-3 ring-1 ring-brand-100">
+              {n(result.trial.minutes)} <T v={{ en: "min", bn: "মিনিট" }} />
+            </span>
+          </div>
+          <p className="mt-2 text-[12.5px] leading-relaxed text-ink-2">{t(result.trial.title)}</p>
+        </div>
 
         <div className="mt-5">
           <div className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-4">
             <T v={{ en: "What counts as done", bn: "কী হলে সম্পন্ন ধরা হবে" }} />
           </div>
           <ul className="mt-2.5 space-y-1.5">
-            {tl(result.tasks[0].acceptance).map((a) => (
+            {tl(result.task.acceptance).map((a) => (
               <li key={a} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-2">
                 <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-brand-500" />
                 {a}

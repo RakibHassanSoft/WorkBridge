@@ -89,7 +89,7 @@ const BANK: Record<string, Template[]> = {
     },
     {
       title: { en: "Fix the failing flow and add clear error states", bn: "ভাঙা ফ্লো ঠিক করা ও স্পষ্ট এরর স্টেট যোগ" },
-      desc: { en: "Repair the cause found in task 1 and replace every silent failure with a readable Bangla and English message.", bn: "টাস্ক ১-এ পাওয়া কারণ সারানো এবং প্রতিটি নীরব ব্যর্থতার বদলে পাঠযোগ্য বাংলা ও ইংরেজি বার্তা।" },
+      desc: { en: "Find the cause, repair it, and replace every silent failure with a readable Bangla and English message.", bn: "কারণ খুঁজে বের করা, সারানো, আর প্রতিটি নীরব ব্যর্থতার বদলে পাঠযোগ্য বাংলা ও ইংরেজি বার্তা বসানো।" },
       fee: 6000, hours: 10, level: "standard", skills: ["JavaScript", "APIs"], dependsOn: 1,
       acceptance: { en: ["A test transaction completes end to end", "Every failure state shows a readable message", "No regression on mobile"], bn: ["টেস্ট লেনদেন শুরু থেকে শেষ সম্পন্ন", "প্রতিটি ব্যর্থ অবস্থায় পাঠযোগ্য বার্তা", "মোবাইলে কোনো রিগ্রেশন নেই"] },
     },
@@ -191,7 +191,7 @@ const BANK: Record<string, Template[]> = {
       title: { en: "Drawings and calculations to standard", bn: "স্ট্যান্ডার্ড অনুযায়ী ড্রয়িং ও হিসাব" },
       desc: { en: "Produce the drawings and supporting calculations, referencing the applicable code on every sheet.", bn: "প্রতিটি শিটে প্রযোজ্য কোডের উল্লেখসহ ড্রয়িং ও সহায়ক হিসাব তৈরি।" },
       fee: 6500, hours: 14, level: "advanced", skills: ["AutoCAD", "Estimation"], dependsOn: 1,
-      acceptance: { en: ["Applicable standard referenced on each sheet", "Calculations shown, not just results", "Reviewed by the mentor engineer"], bn: ["প্রতিটি শিটে প্রযোজ্য স্ট্যান্ডার্ডের উল্লেখ", "কেবল ফল নয়, হিসাব দেখানো", "মেন্টর ইঞ্জিনিয়ার কর্তৃক পর্যালোচিত"] },
+      acceptance: { en: ["Applicable standard referenced on each sheet", "Calculations shown, not just results", "Calculations checked against the applicable code"], bn: ["প্রতিটি শিটে প্রযোজ্য স্ট্যান্ডার্ডের উল্লেখ", "কেবল ফল নয়, হিসাব দেখানো", "প্রযোজ্য কোডের সাথে হিসাব মিলিয়ে দেখা"] },
     },
     {
       title: { en: "Bill of quantities with rate basis", bn: "রেট ভিত্তিসহ বিল অফ কোয়ান্টিটিজ" },
@@ -278,9 +278,9 @@ const HANDOVER: Template = {
 /* ── Risk bank ────────────────────────────────────────────────── */
 
 const GENERIC_RISKS: L[] = [
-  { en: "The brief describes a symptom, not a cause — task 1 is diagnostic so nothing is built on a guess.", bn: "ব্রিফে উপসর্গ বর্ণিত, কারণ নয় — তাই টাস্ক ১ নির্ণয়মূলক, যাতে অনুমানের ওপর কিছু না দাঁড়ায়।" },
-  { en: "Source material quality is unverified; the first task measures it before the rest is priced.", bn: "সোর্স ম্যাটেরিয়ালের মান যাচাই হয়নি; বাকিটার দাম নির্ধারণের আগে প্রথম টাস্ক সেটা মাপে।" },
-  { en: "No staging environment mentioned — a mentor must approve any change made to something live.", bn: "কোনো স্টেজিং এনভায়রনমেন্টের উল্লেখ নেই — লাইভ কিছুতে পরিবর্তনে মেন্টরের অনুমোদন লাগবে।" },
+  { en: "The brief describes a symptom, not a cause — the first hours are diagnostic, so nothing is built on a guess.", bn: "ব্রিফে উপসর্গ বর্ণিত, কারণ নয় — শুরুর ঘণ্টাগুলো নির্ণয়ের, যাতে অনুমানের ওপর কিছু না দাঁড়ায়।" },
+  { en: "Source material quality is unverified — the estimate assumes it is legible, and a coordinator adjusts the fee if it is not.", bn: "সোর্স ম্যাটেরিয়ালের মান যাচাই হয়নি — অনুমানটি ধরে নিয়েছে সেটি পড়ার মতো; না হলে কোঅর্ডিনেটর ফি সমন্বয় করেন।" },
+  { en: "No staging environment mentioned — a coordinator must approve any change made to something live.", bn: "কোনো স্টেজিং এনভায়রনমেন্টের উল্লেখ নেই — লাইভ কিছুতে পরিবর্তনে কোঅর্ডিনেটরের অনুমোদন লাগবে।" },
 ];
 
 const SECTOR_RISKS: Record<string, L> = {
@@ -288,7 +288,7 @@ const SECTOR_RISKS: Record<string, L> = {
   mkt: { en: "Attribution will be approximate; a single-channel coupon code is the honest measurement, not a dashboard number.", bn: "অ্যাট্রিবিউশন আনুমানিক হবে; সৎ পরিমাপ হলো চ্যানেল-নির্দিষ্ট কুপন কোড, ড্যাশবোর্ডের সংখ্যা নয়।" },
   biz: { en: "Historic records may not reconcile at all; the scope reports the gap rather than forcing a balance.", bn: "পুরনো হিসাব একেবারেই না-ও মিলতে পারে; স্কোপ ব্যালান্স জোর করে না মিলিয়ে ফারাকটা জানায়।" },
   content: { en: "Factual claims need a source the client can supply; unsourced claims will be cut rather than invented.", bn: "তথ্যগত দাবির জন্য ক্লায়েন্টের দেওয়া সোর্স লাগবে; সোর্সবিহীন দাবি বানানো নয়, বাদ দেওয়া হবে।" },
-  design: { en: "Production capability is unverified until task 1 confirms it — a beautiful file the press cannot run is a failed deliverable.", bn: "টাস্ক ১ নিশ্চিত না করা পর্যন্ত প্রোডাকশন সক্ষমতা যাচাই হয়নি — প্রেস চালাতে না পারলে সুন্দর ফাইলও ব্যর্থ ডেলিভারেবল।" },
+  design: { en: "Production capability is unverified until the press confirms it — a beautiful file the press cannot run is a failed deliverable.", bn: "প্রেস নিশ্চিত না করা পর্যন্ত প্রোডাকশন সক্ষমতা যাচাই হয়নি — প্রেস চালাতে না পারলে সুন্দর ফাইলও ব্যর্থ ডেলিভারেবল।" },
   eng: { en: "As-built conditions frequently differ from the drawings on record; measurement precedes design for that reason.", bn: "বাস্তব অবস্থা প্রায়ই রেকর্ডের ড্রয়িং থেকে আলাদা হয়; সেজন্যই ডিজাইনের আগে পরিমাপ।" },
   agri: { en: "Field access and seasonality constrain the schedule in ways the client may not have priced in.", bn: "ফিল্ডে প্রবেশাধিকার ও মৌসুম সময়সূচিকে এমনভাবে সীমিত করে, যা ক্লায়েন্ট হিসাবে না-ও ধরে থাকতে পারেন।" },
   social: { en: "Consent and respondent privacy govern the method; anonymisation is not an optional extra.", bn: "সম্মতি ও উত্তরদাতার গোপনীয়তা পদ্ধতি নির্ধারণ করে; বেনামিকরণ ঐচ্ছিক বাড়তি কিছু নয়।" },
@@ -410,7 +410,7 @@ function match(sectorId: string, tasks: ScopedTask[]): Match[] {
     score += Math.min(10, student.verified);
 
     if (student.verified >= 12)
-      reasons.push({ en: `${student.verified} tasks signed off by mentor and client`, bn: `${student.verified}টি টাস্ক মেন্টর ও ক্লায়েন্ট কর্তৃক সাইন-অফ` });
+      reasons.push({ en: `${student.verified} tasks signed off by a coordinator and the client`, bn: `${student.verified}টি টাস্ক কোঅর্ডিনেটর ও ক্লায়েন্ট কর্তৃক সাইন-অফ` });
     if (student.onTime >= 95)
       reasons.push({ en: `${student.onTime}% on-time delivery record`, bn: `${student.onTime}% সময়মতো ডেলিভারির রেকর্ড` });
 
@@ -498,4 +498,253 @@ export function priceCheck(totalFee: number, totalHours: number, sectorId: strin
           };
 
   return { rate, floor, fair: level === "ok", shortfall, gapPct, level, message };
+}
+
+/* ── Trial tasks and points ───────────────────────────────────── */
+
+/**
+ * The AI builds a small mirror of the real task. Applying means doing
+ * this, not writing a pitch — because a pitch proves nothing and a
+ * forty-minute sample proves almost everything.
+ *
+ * The rule for what to mirror: copy the single constraint that decides
+ * whether the real job succeeds, and drop everything that is only volume.
+ */
+export function trialSize(hours: number): number {
+  // A trial is capped at one hour and is never more than an eighth of the job.
+  return Math.max(25, Math.min(60, Math.round((hours * 60) / 8 / 5) * 5));
+}
+
+export type TrialRule = { label: L; detail: L };
+
+export const TRIAL_RULES: TrialRule[] = [
+  {
+    label: { en: "Same features, smaller volume", bn: "একই ফিচার, ছোট পরিমাণ" },
+    detail: {
+      en: "Every skill the real task needs appears in the trial at least once. Nothing that is only repetition is included.",
+      bn: "আসল টাস্কে যত স্কিল লাগে, প্রতিটি ট্রায়ালে অন্তত একবার আসে। যা কেবল পুনরাবৃত্তি, তা বাদ।",
+    },
+  },
+  {
+    label: { en: "Under an hour, always", bn: "সবসময় এক ঘণ্টার কম" },
+    detail: {
+      en: "A trial nobody has time to do filters for free time, not for skill.",
+      bn: "যে ট্রায়াল করার সময় কারো নেই, তা দক্ষতা নয় — অবসর বাছাই করে।",
+    },
+  },
+  {
+    label: { en: "Unpaid, and it stays that way", bn: "বিনা পারিশ্রমিকে, এবং সেটাই থাকবে" },
+    detail: {
+      en: "The trial output is never delivered to the client. If a client could use it, it is too big to be a trial.",
+      bn: "ট্রায়ালের কাজ কখনো ক্লায়েন্টকে দেওয়া হয় না। ক্লায়েন্ট সেটা কাজে লাগাতে পারলে সেটা ট্রায়াল হিসেবে বড্ড বড়।",
+    },
+  },
+  {
+    label: { en: "Effort is never punished", bn: "চেষ্টা কখনো শাস্তি পায় না" },
+    detail: {
+      en: "Doing a trial and not being selected is +1. Only failing a main task you were given costs anything.",
+      bn: "ট্রায়াল করে নির্বাচিত না হওয়া মানে +১। কেবল হাতে পাওয়া মূল কাজে ব্যর্থ হলেই কিছু হারায়।",
+    },
+  },
+];
+
+export type MainResult = "in_progress" | "delivered" | "failed";
+
+export type PointVerdict = { delta: number; reason: L };
+
+/**
+ * The points rule, in one place.
+ *
+ *   did the trial, not selected      → +1
+ *   selected, main task delivered    →  0
+ *   selected, main task failed       → −1
+ *   selected, still working          →  0 (provisional)
+ */
+export function pointsFor(selected: boolean, main: MainResult = "in_progress"): PointVerdict {
+  if (!selected) {
+    return {
+      delta: 1,
+      reason: {
+        en: "Did the trial and was not selected — the effort still counts.",
+        bn: "ট্রায়াল করেছেন, নির্বাচিত হননি — চেষ্টাটা তবু গণনা হয়।",
+      },
+    };
+  }
+  if (main === "failed") {
+    return {
+      delta: -1,
+      reason: {
+        en: "Was given the main task and did not deliver it.",
+        bn: "মূল কাজ হাতে পেয়ে শেষ করতে পারেননি।",
+      },
+    };
+  }
+  if (main === "delivered") {
+    return {
+      delta: 0,
+      reason: {
+        en: "Was selected and delivered — the pay and the verified record are the reward, not points.",
+        bn: "নির্বাচিত হয়ে কাজ শেষ করেছেন — পুরস্কার হলো টাকা ও ভেরিফায়েড রেকর্ড, পয়েন্ট নয়।",
+      },
+    };
+  }
+  return {
+    delta: 0,
+    reason: { en: "Selected, main task still running.", bn: "নির্বাচিত, মূল কাজ এখনো চলছে।" },
+  };
+}
+
+
+/* ── One problem, one task ────────────────────────────────────
+
+   scope() was written when the AI split a brief into a chain of
+   sub-tasks. That turned out to be the wrong product: a shop owner
+   with one problem does not want a project plan, and a chain means
+   the real price is only known at the end.
+
+   scopeOne() reads the same brief and returns a single piece of work
+   with one fee, one estimate and one set of acceptance criteria, plus
+   the short trial the applicants will do.
+   ──────────────────────────────────────────────────────────── */
+
+export type BuiltTrial = {
+  title: L;
+  brief: L;
+  minutes: number;
+  acceptance: { en: string[]; bn: string[] };
+  mirrors: L;
+};
+
+export type SingleScope = {
+  sectorId: string;
+  signals: { label: L; weight: number }[];
+  summary: L;
+  complexity: "Low" | "Medium" | "High";
+  confidence: number;
+  risks: L[];
+  task: ScopedTask;
+  trial: BuiltTrial;
+  price: PriceVerdict;
+};
+
+/** Merge the scoped chain into the single job the client is actually buying. */
+export function scopeOne(brief: string, opts?: { sectorId?: string; budget?: number }): SingleScope {
+  const full = scope(brief, opts);
+  const parts = full.tasks;
+  const lead = parts[0];
+
+  const hours = full.totalHours;
+  const fee = full.totalFee;
+  const level: ScopedTask["level"] = hours <= 5 ? "micro" : hours <= 14 ? "standard" : "advanced";
+
+  const dedupe = (xs: string[]) => Array.from(new Set(xs.map((x) => x.trim()))).filter(Boolean);
+  const acceptance = {
+    en: dedupe(parts.flatMap((p) => p.acceptance.en)).slice(0, 5),
+    bn: dedupe(parts.flatMap((p) => p.acceptance.bn)).slice(0, 5),
+  };
+  const skills = Array.from(new Set(parts.flatMap((p) => p.skills))).slice(0, 6);
+
+  const lower = (x: string) => x.charAt(0).toLowerCase() + x.slice(1);
+  const extras = parts.slice(1);
+  const alsoEn = extras.map((p) => lower(p.title.en)).join(", ");
+  const alsoBn = extras.map((p) => p.title.bn).join(", ");
+
+  const task: ScopedTask = {
+    id: "one",
+    seq: 1,
+    title: !lead
+      ? { en: "The work described in your brief", bn: "আপনার ব্রিফে বর্ণিত কাজ" }
+      : extras.length
+        ? { en: `${lead.title.en}, end to end`, bn: `${lead.title.bn} — শুরু থেকে শেষ` }
+        : lead.title,
+    desc: extras.length
+      ? {
+          en: `${lead?.desc.en ?? ""} Also included: ${alsoEn}.`,
+          bn: `${lead?.desc.bn ?? ""} এর সাথে আছে: ${alsoBn}।`,
+        }
+      : lead?.desc ?? { en: "", bn: "" },
+    fee,
+    hours,
+    level,
+    skills,
+    acceptance,
+  };
+
+  const sec = sectorById(full.sectorId);
+  const summary: L = {
+    en: `One piece of work in ${sec.name.en}, priced as a whole: ${lower(task.title.en)}${
+      extras.length ? `, including ${alsoEn}` : ""
+    }. One fee and one estimate, so the cost is known before anyone starts rather than after.`,
+    bn: `${sec.name.bn}-এ একটিমাত্র কাজ, পুরোটার একটাই দাম: ${task.title.bn}${
+      extras.length ? `, সাথে ${alsoBn}` : ""
+    }। একটি ফি, একটি অনুমান — খরচ জানা যায় কেউ শুরু করার আগেই, পরে নয়।`,
+  };
+
+  return {
+    sectorId: full.sectorId,
+    signals: full.signals,
+    summary,
+    complexity: full.complexity,
+    confidence: full.confidence,
+    risks: full.risks,
+    task,
+    trial: buildTrial(task, full.sectorId),
+    price: priceCheck(fee, hours, full.sectorId),
+  };
+}
+
+/* The trial: the same features, a fraction of the volume, and one
+   deliberate ambiguity so the platform learns what a person does when
+   the brief runs out. */
+const TRIAL_SHAPE: Record<string, { what: L; catch_: L }> = {
+  it: {
+    what: { en: "reproduce the fault once and write down exactly what you saw", bn: "ত্রুটিটি একবার ঘটিয়ে দেখুন এবং ঠিক কী দেখলেন তা লিখুন" },
+    catch_: { en: "one of the steps will not reproduce — say so rather than inventing a cause", bn: "একটি ধাপ পুনরায় ঘটবে না — কারণ বানিয়ে না বলে সেটাই জানান" },
+  },
+  design: {
+    what: { en: "lay out one section at two different sizes", bn: "একটি সেকশন দুটি ভিন্ন সাইজে সাজান" },
+    catch_: { en: "the prices must sit in their own editable layer, because they will change", bn: "দাম আলাদা এডিটযোগ্য লেয়ারে থাকতে হবে, কারণ সেগুলো বদলাবে" },
+  },
+  content: {
+    what: { en: "write three entries to the voice already on the site", bn: "সাইটে থাকা কণ্ঠেই তিনটি এন্ট্রি লিখুন" },
+    catch_: { en: "one item's name differs between the tag and the site — ask, do not choose", bn: "একটি আইটেমের নাম ট্যাগ আর সাইটে আলাদা — নিজে বেছে না নিয়ে জিজ্ঞেস করুন" },
+  },
+  admin: {
+    what: { en: "enter twelve records into the agreed columns", bn: "বারোটি রেকর্ড নির্ধারিত কলামে তুলুন" },
+    catch_: { en: "three are hard to read — flag them, never guess", bn: "তিনটি পড়া কঠিন — অনুমান নয়, চিহ্নিত করুন" },
+  },
+  agri: {
+    what: { en: "read one season of the sample and write two findings", bn: "নমুনার এক মৌসুম পড়ে দুটি ফলাফল লিখুন" },
+    catch_: { en: "the evidence is thin — say where you are guessing", bn: "প্রমাণ কম — কোথায় অনুমান করছেন লিখুন" },
+  },
+  biz: {
+    what: { en: "reconcile one week against the sample statement", bn: "নমুনা বিবরণীর সাথে এক সপ্তাহ মিলিয়ে দেখুন" },
+    catch_: { en: "two entries will not reconcile — list them instead of forcing a match", bn: "দুটি এন্ট্রি মিলবে না — জোর করে না মিলিয়ে তালিকা করুন" },
+  },
+};
+
+const TRIAL_FALLBACK = TRIAL_SHAPE.admin;
+
+export function buildTrial(task: ScopedTask, sectorId: string): BuiltTrial {
+  const shape = TRIAL_SHAPE[sectorId] ?? TRIAL_FALLBACK;
+  const minutes = trialSize(task.hours);
+  return {
+    title: {
+      en: `A ${minutes}-minute version: ${shape.what.en}`,
+      bn: `${minutes} মিনিটের সংস্করণ: ${shape.what.bn}`,
+    },
+    brief: {
+      en: `A sample is attached. Do the same kind of work the real task needs, on a fraction of the volume — ${shape.what.en}. Note how long it took you. Be aware: ${shape.catch_.en}.`,
+      bn: `একটি নমুনা সংযুক্ত। আসল টাস্কে যে ধরনের কাজ লাগে, সামান্য পরিমাণে সেটাই করুন — ${shape.what.bn}। কত সময় লাগল লিখে দিন। মনে রাখবেন: ${shape.catch_.bn}।`,
+    },
+    minutes,
+    acceptance: {
+      en: ["Every item in the sample attempted", "Anything unclear flagged rather than guessed", "Time taken recorded honestly"],
+      bn: ["নমুনার প্রতিটি আইটেমে চেষ্টা করা", "অস্পষ্ট যা কিছু, অনুমান না করে চিহ্নিত", "সময় সৎভাবে লেখা"],
+    },
+    mirrors: {
+      en: `The real task is ${task.hours} hours of this. The trial copies the part that decides the whole job: ${shape.catch_.en}.`,
+      bn: `আসল টাস্ক এর ${task.hours} ঘণ্টা। ট্রায়াল সেই অংশটাই নকল করে যা পুরো কাজের ভাগ্য ঠিক করে: ${shape.catch_.bn}।`,
+    },
+  };
 }

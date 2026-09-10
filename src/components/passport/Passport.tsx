@@ -18,7 +18,7 @@ import {
 import { Bar, Button, Reveal } from "@/components/ui";
 import SectorIcon from "@/components/SectorIcon";
 import { EVALUATIONS, TASKS, jobById } from "@/data/work";
-import { clientById, mentorById, studentBySlug } from "@/data/people";
+import { clientById, reviewerById, studentBySlug } from "@/data/people";
 import { sectorById } from "@/data/sectors";
 import { T, useLang, useNum } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -235,11 +235,11 @@ export default function Passport({ slug }: { slug: string }) {
                               <div>
                                 <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-4">
                                   <ShieldCheck className="size-3 text-brand-500" />
-                                  <T v={{ en: "Mentor", bn: "মেন্টর" }} />
+                                  <T v={{ en: "Coordinator", bn: "কোঅর্ডিনেটর" }} />
                                 </div>
-                                <p className="mt-2 text-[12.5px] leading-relaxed text-ink-2">&ldquo;{t(ev.mentorNote)}&rdquo;</p>
+                                <p className="mt-2 text-[12.5px] leading-relaxed text-ink-2">&ldquo;{t(ev.reviewerNote)}&rdquo;</p>
                                 <p className="mt-2 text-[11.5px] text-ink-4">
-                                  {t(mentorById(ev.mentorId)!.name)} · {t(mentorById(ev.mentorId)!.org)}
+                                  {t(reviewerById(ev.reviewerId).name)} · {t(reviewerById(ev.reviewerId).org)}
                                 </p>
                               </div>
                               {ev.clientNote && (
@@ -259,7 +259,7 @@ export default function Passport({ slug }: { slug: string }) {
                         {!ev && (
                           <div className="flex items-center gap-2 border-t border-line bg-canvas-2/40 px-6 py-4 text-[12px] text-ink-4">
                             <BadgeCheck className="size-3.5 text-brand-500" />
-                            <T v={{ en: "Mentor scored and client signed off", bn: "মেন্টর স্কোর দিয়েছেন ও ক্লায়েন্ট সাইন-অফ করেছেন" }} />
+                            <T v={{ en: "Coordinator scored and client signed off", bn: "কোঅর্ডিনেটর স্কোর দিয়েছেন ও ক্লায়েন্ট সাইন-অফ করেছেন" }} />
                           </div>
                         )}
                       </article>
@@ -291,7 +291,7 @@ export default function Passport({ slug }: { slug: string }) {
                 <p className="mt-4 border-t border-line pt-4 text-[11.5px] leading-relaxed text-ink-4">
                   <T
                     v={{
-                      en: "Derived from mentor rubric scores on completed work — never from self-assessment, endorsements, or activity counts.",
+                      en: "Derived from rubric scores on completed work — never from self-assessment, endorsements, or activity counts.",
                       bn: "সম্পন্ন কাজে মেন্টরের রুব্রিক স্কোর থেকে নেওয়া — কখনোই self-assessment, এনডোর্সমেন্ট বা অ্যাক্টিভিটি কাউন্ট থেকে নয়।",
                     }}
                   />
@@ -334,7 +334,7 @@ export default function Passport({ slug }: { slug: string }) {
                 <p className="mt-4 text-[13px] leading-relaxed text-white/70">
                   <T
                     v={{
-                      en: "Every entry here required two independent signatures: a mentor who scored the work against a sector rubric, and the business that paid for it. Nothing on this page was claimed by the graduate.",
+                      en: "Every entry here required two independent signatures: a coordinator who scored the work against a sector rubric, and the business that paid for it. Nothing on this page was claimed by the graduate.",
                       bn: "এখানকার প্রতিটি এন্ট্রির জন্য দুটি স্বাধীন স্বাক্ষর লেগেছে: একজন মেন্টর যিনি সেক্টর রুব্রিকে কাজটি মূল্যায়ন করেছেন, আর যে ব্যবসা টাকা দিয়েছে। এই পাতার কোনো কিছুই গ্র্যাজুয়েট নিজে দাবি করেননি।",
                     }}
                   />

@@ -15,13 +15,13 @@ const TIERS = [
     features: {
       en: [
         "Single, tightly-scoped deliverable",
-        "Mentor-supervised, rubric-checked",
+        "Coordinator-checked against a sector rubric",
         "Fixed price known before you commit",
         "No account, no subscription, no minimum",
       ],
       bn: [
         "একটি মাত্র, নির্দিষ্ট স্কোপের ডেলিভারেবল",
-        "মেন্টর-সুপারভাইজড, রুব্রিক-যাচাইকৃত",
+        "কোঅর্ডিনেটর-যাচাইকৃত, সেক্টর রুব্রিক অনুযায়ী",
         "কমিট করার আগেই নির্ধারিত দাম জানা",
         "কোনো অ্যাকাউন্ট, সাবস্ক্রিপশন বা ন্যূনতম নেই",
       ],
@@ -32,20 +32,20 @@ const TIERS = [
     key: "project",
     name: { en: "Project", bn: "প্রজেক্ট" },
     price: "৳3,000 – ৳25,000",
-    unit: { en: "per project · split into priced tasks", bn: "প্রতি প্রজেক্ট · নির্ধারিত দামের টাস্কে ভাগ" },
-    line: { en: "A real problem, decomposed and sequenced by the AI layer.", bn: "একটি বাস্তব সমস্যা, এআই লেয়ার দিয়ে ভাগ ও ক্রমে সাজানো।" },
+    unit: { en: "per problem · one priced task", bn: "প্রতি সমস্যা · একটি নির্ধারিত দামের কাজ" },
+    line: { en: "A real problem, priced and scoped by the AI layer.", bn: "একটি বাস্তব সমস্যা, এআই লেয়ার দিয়ে দাম ও পরিধি ঠিক করা।" },
     features: {
       en: [
         "AI scope reviewed by a human coordinator",
         "Task-by-task pricing, approve what you want",
-        "Dedicated mentor sign-off on every milestone",
+        "Coordinator sign-off on every milestone",
         "Direct connection to the graduate afterwards",
         "Revisions recorded, not quietly redone",
       ],
       bn: [
         "human coordinator-রিভিউড এআই স্কোপ",
         "টাস্কভিত্তিক দাম, যা চান তাই অনুমোদন করুন",
-        "প্রতিটি মাইলফলকে নির্ধারিত মেন্টরের সাইন-অফ",
+        "প্রতিটি মাইলফলকে কোঅর্ডিনেটরের সাইন-অফ",
         "পরে গ্র্যাজুয়েটের সাথে সরাসরি সংযোগ",
         "রিভিশন নীরবে নয়, রেকর্ড করে করা হয়",
       ],
@@ -60,13 +60,13 @@ const TIERS = [
     line: { en: "For someone with an idea but no team and no capital.", bn: "যার আইডিয়া আছে কিন্তু টিম বা পুঁজি নেই, তার জন্য।" },
     features: {
       en: [
-        "Mentor reviews and scopes the idea into measurable work",
+        "A coordinator scopes the idea into measurable work",
         "Students build it at micro-task prices under supervision",
         "Every completed milestone recorded as a verified track record",
         "Consistent performers introduced to partner companies and angel networks",
       ],
       bn: [
-        "মেন্টর আইডিয়া রিভিউ করে পরিমাপযোগ্য কাজে স্কোপ করেন",
+        "কোঅর্ডিনেটর আইডিয়াটিকে পরিমাপযোগ্য কাজে স্কোপ করেন",
         "শিক্ষার্থীরা সুপারভিশনে মাইক্রো-টাস্ক দামে সেটা বানান",
         "সম্পন্ন প্রতিটি মাইলফলক ভেরিফায়েড ট্র্যাক রেকর্ড হিসেবে সংরক্ষিত",
         "ধারাবাহিক ভালো ফলদাতাদের পার্টনার কোম্পানি ও এঞ্জেল নেটওয়ার্কের সাথে পরিচয়",
@@ -77,8 +77,7 @@ const TIERS = [
 ];
 
 const SPLIT = [
-  { who: { en: "The student", bn: "শিক্ষার্থী" }, share: 75, note: { en: "Paid on client sign-off, not on submission", bn: "সাবমিশনে নয়, ক্লায়েন্ট সাইন-অফে পরিশোধ" } },
-  { who: { en: "Mentor stipend", bn: "মেন্টর স্টাইপেন্ড" }, share: 10, note: { en: "Starts once revenue exists — promised up front", bn: "রেভিনিউ এলে শুরু — শুরুতেই প্রতিশ্রুত" } },
+  { who: { en: "The student", bn: "শিক্ষার্থী" }, share: 85, note: { en: "Paid on client sign-off, not on submission", bn: "সাবমিশনে নয়, ক্লায়েন্ট সাইন-অফে পরিশোধ" } },
   { who: { en: "Platform & payments", bn: "প্ল্যাটফর্ম ও পেমেন্ট" }, share: 15, note: { en: "Coordination, verification, dispute handling", bn: "কোঅর্ডিনেশন, ভেরিফিকেশন, বিরোধ নিষ্পত্তি" } },
 ];
 
@@ -144,8 +143,8 @@ export default function Pricing() {
               eyebrow={{ en: "Where the money goes", bn: "টাকাটা কোথায় যায়" }}
               title={{ en: "Published, not buried in a terms page", bn: "প্রকাশিত, কোনো টার্মস পেজে লুকানো নয়" }}
               desc={{
-                en: "A student who cannot see how a fee is split has no reason to trust the platform holding it. Neither does a mentor being asked to work for goodwill.",
-                bn: "যে শিক্ষার্থী ফি কীভাবে ভাগ হয় দেখতে পান না, তার প্ল্যাটফর্মকে বিশ্বাস করার কারণ নেই। সদিচ্ছার বিনিময়ে কাজ করতে বলা মেন্টরেরও নেই।",
+                en: "A student who cannot see how a fee is split has no reason to trust the platform holding it. So the split is published, and in Phase 0 the platform takes none of it.",
+                bn: "যে শিক্ষার্থী ফি কীভাবে ভাগ হয় দেখতে পান না, তার প্ল্যাটফর্মকে বিশ্বাস করার কারণ নেই। তাই ভাগটা প্রকাশ করা, আর ফেজ ০-তে প্ল্যাটফর্ম এর কিছুই নেয় না।",
               }}
             />
           </Reveal>

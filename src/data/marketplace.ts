@@ -94,7 +94,7 @@ export const EXTRA_JOBS: Job[] = [
     ai: {
       summary: { en: "Compilation and checking, not filing on the client's behalf.", bn: "সংকলন ও যাচাই — ক্লায়েন্টের পক্ষে ফাইল করা নয়।" },
       complexity: "Medium", confidence: 88, estHours: 9, suggestedFee: 3800,
-      risks: { en: ["Mentor sign-off required before anything is submitted to NBR"], bn: ["এনবিআর-এ কিছু জমা দেওয়ার আগে মেন্টরের সাইন-অফ লাগবে"] },
+      risks: { en: ["Coordinator sign-off required before anything is submitted to NBR"], bn: ["এনবিআর-এ কিছু জমা দেওয়ার আগে কোঅর্ডিনেটরের সাইন-অফ লাগবে"] },
       skills: ["Bookkeeping", "VAT basics"],
     },
     taskIds: ["x4"],
@@ -134,11 +134,11 @@ export const EXTRA_TASKS: Task[] = [
   {
     id: "x4", jobId: "j12", seq: 1,
     title: { en: "Compile and check the quarterly VAT pack", bn: "প্রান্তিক ভ্যাট প্যাক সংকলন ও যাচাই" },
-    desc: { en: "Gather the quarter's sales and purchase records, reconcile them, and assemble the filing pack. A mentor accountant signs off before anything is submitted.", bn: "প্রান্তিকের বিক্রয় ও ক্রয়ের রেকর্ড জোগাড় করা, মেলানো, আর ফাইলিং প্যাক তৈরি করা। কিছু জমা দেওয়ার আগে একজন মেন্টর অ্যাকাউন্ট্যান্ট সাইন-অফ করেন।" },
+    desc: { en: "Gather the quarter's sales and purchase records, reconcile them, and assemble the filing pack. A qualified accountant signs off before anything is submitted.", bn: "প্রান্তিকের বিক্রয় ও ক্রয়ের রেকর্ড জোগাড় করা, মেলানো, আর ফাইলিং প্যাক তৈরি করা। কিছু জমা দেওয়ার আগে একজন যোগ্য অ্যাকাউন্ট্যান্ট সাইন-অফ করেন।" },
     sectorId: "biz", fee: 3800, hours: 9, level: "advanced",
     skills: ["Bookkeeping", "VAT basics", "Excel"], status: "open", progress: 0,
     dueLabel: { en: "Open · closes in 4 days", bn: "খোলা · ৪ দিনে বন্ধ" },
-    acceptance: { en: ["Every figure traceable to a source document", "Unexplained gaps listed, not smoothed over", "Mentor accountant sign-off before submission"], bn: ["প্রতিটি সংখ্যা সোর্স ডকুমেন্টে মিলিয়ে দেখা যায়", "অব্যাখ্যাত ফারাক ঢাকা নয়, তালিকাভুক্ত", "জমার আগে মেন্টর অ্যাকাউন্ট্যান্টের সাইন-অফ"] },
+    acceptance: { en: ["Every figure traceable to a source document", "Unexplained gaps listed, not smoothed over", "Accountant sign-off before submission"], bn: ["প্রতিটি সংখ্যা সোর্স ডকুমেন্টে মিলিয়ে দেখা যায়", "অব্যাখ্যাত ফারাক ঢাকা নয়, তালিকাভুক্ত", "জমার আগে অ্যাকাউন্ট্যান্টের সাইন-অফ"] },
   },
   {
     id: "x5", jobId: "j1", seq: 6,
@@ -201,7 +201,7 @@ export const EXTRA_TASKS: Task[] = [
     sectorId: "eng", fee: 4800, hours: 14, level: "advanced",
     skills: ["AutoCAD", "Site survey", "Documentation"], status: "open", progress: 0,
     dueLabel: { en: "Open · closes in 8 days", bn: "খোলা · ৮ দিনে বন্ধ" },
-    acceptance: { en: ["Every measured dimension photographed", "Discrepancies with old drawings flagged", "Mentor engineer review before handover"], bn: ["প্রতিটি মাপা মাত্রার ছবি", "পুরনো ড্রয়িংয়ের সাথে অসঙ্গতি চিহ্নিত", "হ্যান্ডওভারের আগে মেন্টর ইঞ্জিনিয়ারের রিভিউ"] },
+    acceptance: { en: ["Every measured dimension photographed", "Discrepancies with old drawings flagged", "Code compliance checked before handover"], bn: ["প্রতিটি মাপা মাত্রার ছবি", "পুরনো ড্রয়িংয়ের সাথে অসঙ্গতি চিহ্নিত", "হ্যান্ডওভারের আগে কোড সঙ্গতি যাচাই"] },
   },
   {
     id: "x12", jobId: "j4", seq: 4,
@@ -209,7 +209,7 @@ export const EXTRA_TASKS: Task[] = [
     desc: { en: "Thirty products shot on a consistent white setup with window light, retouched to a single look, delivered web-ready and print-ready.", bn: "জানালার আলোয় একই সাদা সেটআপে তিরিশটি প্রোডাক্ট, এক লুকে রিটাচ, ওয়েব ও প্রিন্ট দুই ফরম্যাটেই ডেলিভারি।" },
     sectorId: "design", fee: 3600, hours: 11, level: "standard",
     skills: ["Photography", "Retouching", "Figma"], status: "in_review", assignee: "s5", progress: 100,
-    dueLabel: { en: "In mentor review", bn: "মেন্টর রিভিউতে" },
+    dueLabel: { en: "In review", bn: "রিভিউতে" },
     acceptance: { en: ["Consistent white balance across all 30", "Web and print exports of each", "No product cropped at the edges"], bn: ["৩০টিতেই সামঞ্জস্যপূর্ণ হোয়াইট ব্যালান্স", "প্রতিটির ওয়েব ও প্রিন্ট এক্সপোর্ট", "কোনো প্রোডাক্ট প্রান্তে কাটা পড়েনি"] },
   },
 ];
@@ -250,9 +250,9 @@ export const TASK_META: Record<string, TaskMeta> = {
   x4: {
     applicants: 7, postedOrder: 95, postedLabel: { en: "Yesterday", bn: "গতকাল" },
     clientWords: { en: "Our accountant left without notice. Filing is due in eleven days and I do not know where to start.", bn: "আমাদের অ্যাকাউন্ট্যান্ট না জানিয়ে চলে গেছেন। এগারো দিনের মধ্যে ফাইলিং, আর আমি জানি না কোথা থেকে শুরু করব।" },
-    aiSimple: { en: "Compile and reconcile the quarter, then hand over a checked pack. You are not filing on the client's behalf and you are not signing anything — a mentor accountant does that.", bn: "প্রান্তিকের হিসাব সংকলন ও মেলানো, তারপর যাচাই করা প্যাক হস্তান্তর। আপনি ক্লায়েন্টের পক্ষে ফাইল করছেন না, কিছুতে সইও করছেন না — সেটা মেন্টর অ্যাকাউন্ট্যান্ট করেন।" },
+    aiSimple: { en: "Compile and reconcile the quarter, then hand over a checked pack. You are not filing on the client's behalf and you are not signing anything — a qualified accountant does that.", bn: "প্রান্তিকের হিসাব সংকলন ও মেলানো, তারপর যাচাই করা প্যাক হস্তান্তর। আপনি ক্লায়েন্টের পক্ষে ফাইল করছেন না, কিছুতে সইও করছেন না — সেটা একজন যোগ্য অ্যাকাউন্ট্যান্ট করেন।" },
     aiSteps: {
-      en: ["List what documents exist and what is missing on day one", "Reconcile sales and purchases separately before combining", "Put every unexplained gap in its own row instead of forcing a balance", "Book the mentor review two days before the deadline, not on it"],
+      en: ["List what documents exist and what is missing on day one", "Reconcile sales and purchases separately before combining", "Put every unexplained gap in its own row instead of forcing a balance", "Book the accountant review two days before the deadline, not on it"],
       bn: ["প্রথম দিনেই কোন ডকুমেন্ট আছে ও কী নেই তার তালিকা করুন", "একত্র করার আগে বিক্রয় ও ক্রয় আলাদা করে মেলান", "ব্যালান্স জোর করে না মিলিয়ে প্রতিটি অব্যাখ্যাত ফারাক আলাদা সারিতে রাখুন", "মেন্টর রিভিউ ডেডলাইনের দিনে নয়, দুই দিন আগে বুক করুন"],
     },
     aiWatchOut: { en: "Only seven applied because the deadline scares people. That is exactly why the fee is high for the hours — the risk is the calendar, not the work.", bn: "মাত্র সাতজন আবেদন করেছেন কারণ ডেডলাইন ভয় ধরায়। ঘণ্টার তুলনায় ফি বেশি ঠিক সেজন্যই — ঝুঁকিটা কাজের নয়, ক্যালেন্ডারের।" },
@@ -327,7 +327,7 @@ export const TASK_META: Record<string, TaskMeta> = {
     clientWords: { en: "The drawings we have are from before two extensions were built. Nothing matches the building.", bn: "আমাদের কাছে যে ড্রয়িং আছে সেটা দুটি সম্প্রসারণের আগের। ভবনের সাথে কিছুই মেলে না।" },
     aiSimple: { en: "Measure reality first, draw second. The value here is the discrepancy list between the old drawings and what is actually standing.", bn: "আগে বাস্তব মাপুন, তারপর আঁকুন। এখানে আসল মূল্য পুরনো ড্রয়িং আর বাস্তবে যা দাঁড়িয়ে আছে তার মধ্যে অসঙ্গতির তালিকা।" },
     aiSteps: {
-      en: ["Photograph every dimension as you measure it", "Mark each discrepancy against the old drawing explicitly", "Reference the applicable code on every sheet", "Book the mentor engineer review before you finalise"],
+      en: ["Photograph every dimension as you measure it", "Mark each discrepancy against the old drawing explicitly", "Reference the applicable code on every sheet", "Check every sheet against the code before you finalise"],
       bn: ["মাপার সময়েই প্রতিটি মাত্রার ছবি তুলুন", "পুরনো ড্রয়িংয়ের বিপরীতে প্রতিটি অসঙ্গতি স্পষ্টভাবে চিহ্নিত করুন", "প্রতিটি শিটে প্রযোজ্য কোডের উল্লেখ দিন", "চূড়ান্ত করার আগে মেন্টর ইঞ্জিনিয়ারের রিভিউ বুক করুন"],
     },
     aiWatchOut: { en: "Four applicants. Site work outside Dhaka thins the field, which is an opening if you can get there.", bn: "চারজন আবেদনকারী। ঢাকার বাইরে সাইটের কাজে প্রতিযোগী কমে যায় — পৌঁছাতে পারলে এটি সুযোগ।" },

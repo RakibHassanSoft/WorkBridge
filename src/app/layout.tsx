@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { LangProvider } from "@/lib/i18n";
+import { AuthProvider } from "@/lib/auth";
 import Chrome from "@/components/Chrome";
 
 /* Self-hosted variable fonts — no external requests, no FOUT. */
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
     template: "%s · WorkBridge",
   },
   description:
-    "WorkBridge turns Bangladesh's graduates into verified professionals. Businesses post a real problem, AI scopes it into supervised micro-tasks, matched students deliver, mentors sign off — and the proof follows the graduate for life.",
+    "WorkBridge turns Bangladesh's graduates into verified professionals. A business posts a real problem, the AI prices it and writes a short trial, students apply by doing that trial, and the finished work is signed off by a coordinator and the client — proof that follows the graduate for life.",
   keywords: ["WorkBridge", "Bangladesh", "graduate employment", "verified work experience", "SME", "micro-tasks"],
   openGraph: {
     title: "WorkBridge — Proof of work for every graduate",
@@ -53,13 +54,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${display.variable} ${bengali.variable}`}>
       <body className="min-h-dvh bg-canvas antialiased">
         <LangProvider>
-          <a
-            href="#main"
-            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:text-white"
-          >
-            Skip to content
-          </a>
-          <Chrome>{children}</Chrome>
+          <AuthProvider>
+            <a
+              href="#main"
+              className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:text-white"
+            >
+              Skip to content
+            </a>
+            <Chrome>{children}</Chrome>
+          </AuthProvider>
         </LangProvider>
       </body>
     </html>

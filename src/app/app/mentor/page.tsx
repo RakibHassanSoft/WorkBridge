@@ -1,8 +1,14 @@
-import type { Metadata } from "next";
-import MentorWorkspace from "@/components/app/MentorWorkspace";
+"use client";
 
-export const metadata: Metadata = { title: "Mentor console" };
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function MentorAppPage() {
-  return <MentorWorkspace />;
+// The mentor role was merged into the coordinator/moderator role.
+// This route now just redirects into the app.
+export default function MentorRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/app/moderator");
+  }, [router]);
+  return null;
 }

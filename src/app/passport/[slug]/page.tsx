@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!student) return { title: "Proof-of-Work passport" };
   return {
     title: `${student.name.en} — Proof-of-Work passport`,
-    description: `${student.verified} tasks verified by a mentor and signed off by the business that paid for them.`,
+    description: `${student.verified} tasks scored by a coordinator and signed off by the business that paid for them.`,
   };
 }
 

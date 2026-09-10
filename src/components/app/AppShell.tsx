@@ -13,7 +13,6 @@ export type NavItem = { key: string; label: L; icon: LucideIcon; badge?: number 
 const ROLES = [
   { href: "/app/client", label: { en: "Client", bn: "ক্লায়েন্ট" } },
   { href: "/app/student", label: { en: "Student", bn: "শিক্ষার্থী" } },
-  { href: "/app/mentor", label: { en: "Mentor", bn: "মেন্টর" } },
   { href: "/app/moderator", label: { en: "Moderator", bn: "মডারেটর" } },
 ];
 
@@ -28,6 +27,7 @@ export default function AppShell({
   title,
   subtitle,
   actions,
+  chatMode = false,
   children,
 }: {
   role: string;
@@ -40,6 +40,9 @@ export default function AppShell({
   title: L;
   subtitle?: L;
   actions?: React.ReactNode;
+  /** Chat lays out like a messaging app: nav moves to a top bar and the
+      whole area below it belongs to the conversation list and thread. */
+  chatMode?: boolean;
   children: React.ReactNode;
 }) {
   const { t } = useLang();
@@ -50,9 +53,12 @@ export default function AppShell({
     <div className="min-h-dvh bg-canvas-2/60">
       {/* Sidebar */}
       <aside
+        aria-hidden={!open && chatMode}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-line bg-white transition-transform duration-300 lg:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-line bg-white transition-transform duration-300",
+          !chatMode && "lg:translate-x-0 lg:visible lg:pointer-events-auto",
+          // An off-canvas rail must not stay clickable or tabbable.
+          open ? "translate-x-0" : "-translate-x-full invisible pointer-events-none"
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-line px-5">
@@ -148,10 +154,14 @@ export default function AppShell({
       {open && <div className="fixed inset-0 z-40 bg-ink/30 lg:hidden" onClick={() => setOpen(false)} />}
 
       {/* Main */}
-      <div className="lg:pl-[252px]">
-        <header className="sticky top-0 z-30 border-b border-line bg-white/85 backdrop-blur-md">
+      <div className={cn(!chatMode ? "lg:pl-[252px]" : "flex h-dvh flex-col overflow-hidden")}>
+        <header className={cn("z-30 border-b border-line bg-white/85 backdrop-blur-md", chatMode ? "shrink-0" : "sticky top-0")}>
           <div className="flex h-16 items-center gap-4 px-5 lg:px-8">
-            <button className="grid size-9 place-items-center rounded-[10px] border border-line lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
+            <button
+              className={cn("grid size-9 place-items-center rounded-[10px] border border-line", !chatMode && "lg:hidden")}
+              onClick={() => setOpen(true)}
+              aria-label="Open menu"
+            >
               <Menu className="size-4.5" />
             </button>
 
@@ -176,18 +186,54 @@ export default function AppShell({
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1180px] px-5 py-7 lg:px-8 lg:py-9">
-          <div className="mb-6 flex items-center gap-2.5 rounded-[12px] border border-brand-100 bg-brand-50/60 px-4 py-2.5 text-[12px] text-brand-900">
-            <span className="size-1.5 shrink-0 rounded-full bg-brand-500 anim-pulse-ring" />
-            <T
-              v={{
-                en: "Interactive prototype — every project, person and number below is demonstration data.",
-                bn: "ইন্টার‌্যাক্টিভ প্রোটোটাইপ — নিচের প্রতিটি প্রজেক্ট, ব্যক্তি ও সংখ্যা ডেমো ডেটা।",
-              }}
-            />
+        {chatMode && (
+          <nav className="sticky z-20 flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-white px-3 py-2 lg:flex-wrap lg:overflow-x-visible">
+            {nav.map((item) => {
+              const on = item.key === active;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => onSelect(item.key)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-2 rounded-[10px] px-3 py-2 text-[13px] transition-colors",
+                    on ? "bg-ink text-white" : "text-ink-3 hover:bg-canvas-2 hover:text-ink"
+                  )}
+                >
+                  <item.icon className={cn("size-3.5 shrink-0", on ? "text-brand-300" : "text-ink-4")} />
+                  <span className="whitespace-nowrap">{t(item.label)}</span>
+                  {item.badge ? (
+                    <span
+                      className={cn(
+                        "num grid h-4.5 min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-semibold",
+                        on ? "bg-white/15 text-white" : "bg-brand-50 text-brand-700"
+                      )}
+                      style={{ height: 18 }}
+                    >
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </nav>
+        )}
+
+        {chatMode ? (
+          <div className="min-h-0 flex-1 bg-white">{children}</div>
+        ) : (
+          <div className="mx-auto max-w-[1180px] px-5 py-7 lg:px-8 lg:py-9">
+            <div className="mb-6 flex items-center gap-2.5 rounded-[12px] border border-brand-100 bg-brand-50/60 px-4 py-2.5 text-[12px] text-brand-900">
+              <span className="size-1.5 shrink-0 rounded-full bg-brand-500 anim-pulse-ring" />
+              <T
+                v={{
+                  en: "Interactive prototype — every project, person and number below is demonstration data.",
+                  bn: "ইন্টার‌্যাক্টিভ প্রোটোটাইপ — নিচের প্রতিটি প্রজেক্ট, ব্যক্তি ও সংখ্যা ডেমো ডেটা।",
+                }}
+              />
+            </div>
+            {children}
           </div>
-          {children}
-        </div>
+        )}
       </div>
     </div>
   );

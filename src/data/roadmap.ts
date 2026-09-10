@@ -22,7 +22,7 @@ export const PHASES: Phase[] = [
       bn: "ঢাকায় সরাসরি ঘুরে ৫ থেকে ১০টি বাস্তব এসএমই সমস্যা খুঁজে বের করা। একটি পার্টনার বিশ্ববিদ্যালয়ের শিক্ষার্থীদের সাথে হাতে ম্যাচ করা। কোঅর্ডিনেশন হোয়াটসঅ্যাপ ও স্প্রেডশিটে। প্রতিটি প্রজেক্টে ছোট হলেও বাস্তব ফি — আনুমানিক ৳৩,০০০ থেকে ৳৫,০০০ — কারণ টাকা হাতবদল না হলে willingness to pay যাচাই করা যায় না।",
     },
     ships: {
-      en: ["5–10 paid SME projects", "One-page mentor sign-off rubric", "Outreach material for 15–20 target SMEs"],
+      en: ["5–10 paid SME projects", "One-page sign-off rubric for coordinators", "Outreach material for 15–20 target SMEs"],
       bn: ["৫–১০টি পেইড এসএমই প্রজেক্ট", "এক পৃষ্ঠার মেন্টর সাইন-অফ রুব্রিক", "১৫–২০টি টার্গেট এসএমই-র আউটরিচ ম্যাটেরিয়াল"],
     },
     gate: {
@@ -97,10 +97,10 @@ export const RISKS: { risk: L; fix: L }[] = [
   },
   {
     risk: { en: "Verification becomes meaningless", bn: "ভেরিফিকেশন প্রক্রিয়া অর্থহীন হয়ে যাওয়া" },
-    fix: { en: "No self-claim ever counts. Mentor and business must both sign off.", bn: "কোনো self-claim গণনা হবে না। মেন্টর ও ব্যবসা — দুই পক্ষকেই সাইন-অফ করতে হবে।" },
+    fix: { en: "No self-claim ever counts. A coordinator and the business must both sign off.", bn: "কোনো self-claim গণনা হবে না। কোঅর্ডিনেটর ও ব্যবসা — দুই পক্ষকেই সাইন-অফ করতে হবে।" },
   },
   {
-    risk: { en: "Mentor supply dries up", bn: "মেন্টর সাপ্লাই শুকিয়ে যাওয়া" },
+    risk: { en: "Coordinator capacity runs out", bn: "কোঅর্ডিনেটরের সক্ষমতা ফুরিয়ে যাওয়া" },
     fix: { en: "Referral rights and hiring priority from the start; stipends once revenue exists.", bn: "শুরু থেকেই রেফারেল ও হায়ারিং প্রায়োরিটি; রেভিনিউ এলে স্টাইপেন্ড।" },
   },
   {
@@ -116,6 +116,6 @@ export const RISKS: { risk: L; fix: L }[] = [
 export const NEXT_STEPS: L[] = [
   { en: "Lock a partner university and its CSE/IT department contact", bn: "একটি পার্টনার বিশ্ববিদ্যালয় ও তাদের সিএসই/আইটি বিভাগের যোগাযোগ চূড়ান্ত করা" },
   { en: "Build outreach material for 15–20 target SMEs to surface the first 5–10 real problems", bn: "প্রথম ৫–১০টি real সমস্যা বের করতে ১৫–২০টি টার্গেট এসএমই-র জন্য আউটরিচ ম্যাটেরিয়াল তৈরি" },
-  { en: "Write the one-page mentor sign-off rubric — before any platform work begins", bn: "এক পৃষ্ঠার মেন্টর সাইন-অফ রুব্রিক লেখা — প্ল্যাটফর্মের কাজ শুরুর আগেই" },
+  { en: "Write the one-page sign-off rubric — before any platform work begins", bn: "এক পৃষ্ঠার সাইন-অফ রুব্রিক লেখা — প্ল্যাটফর্মের কাজ শুরুর আগেই" },
   { en: "Run a hard go / no-go review at the end of Phase 0 on completion rate and repeat-willingness", bn: "ফেজ ০ শেষে completion rate ও repeat-willingness-এর ভিত্তিতে কঠোর go / no-go রিভিউ" },
 ];

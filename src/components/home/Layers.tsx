@@ -12,7 +12,7 @@ const LAYERS = [
     title: { en: "The micro-task layer", bn: "মাইক্রো-টাস্ক লেয়ার" },
     price: { en: "৳500 – ৳2,000 · delivered in 24–72 hours", bn: "৳৫০০ – ৳২,০০০ · ২৪–৭২ ঘণ্টায় ডেলিভারি" },
     desc: {
-      en: "For a business that has never paid a student before, the risk has to be almost zero. Small scope, fixed price, mentor-supervised — cheap enough that trying it once is an easy decision.",
+      en: "For a business that has never paid a student before, the risk has to be almost zero. Small scope, fixed price, coordinator-checked — cheap enough that trying it once is an easy decision.",
       bn: "যে ব্যবসা আগে কখনো কোনো ছাত্রকে টাকা দিয়ে কাজ করায়নি, তার জন্য ঝুঁকি প্রায় শূন্য হতে হবে। ছোট স্কোপ, নির্দিষ্ট দাম, মেন্টর-সুপারভাইজড — এতটাই সাশ্রয়ী যে একবার চেষ্টা করা সহজ সিদ্ধান্ত।",
     },
     points: {
@@ -33,14 +33,14 @@ const LAYERS = [
     icon: Lightbulb,
     tag: { en: "Phase 3 layer", bn: "ফেজ ৩ লেয়ার" },
     title: { en: "The micro-entrepreneur layer", bn: "ক্ষুদ্র উদ্যোক্তা লেয়ার" },
-    price: { en: "Idea in, mentor-scoped, student-built, investor-visible", bn: "আইডিয়া আসে, মেন্টর স্কোপ করেন, শিক্ষার্থী বানান, বিনিয়োগকারী দেখেন" },
+    price: { en: "Idea in, scoped, student-built, investor-visible", bn: "আইডিয়া আসে, পরিধি ঠিক হয়, শিক্ষার্থী বানান, বিনিয়োগকারী দেখেন" },
     desc: {
-      en: "Not every founder has a team or capital. Someone with an idea submits it, a mentor scopes it into something realistic and measurable, and students build it at micro-task prices under supervision.",
+      en: "Not every founder has a team or capital. Someone with an idea submits it, a coordinator scopes it into something realistic and measurable, and students build it at micro-task prices.",
       bn: "প্রত্যেক উদ্যোক্তার টিম বা পুঁজি থাকে না। কারও একটা আইডিয়া থাকলে তিনি জমা দেন, মেন্টর সেটাকে বাস্তবসম্মত ও পরিমাপযোগ্য করে স্কোপ করেন, আর শিক্ষার্থীরা মাইক্রো-টাস্ক দামে সুপারভিশনে সেটা বানান।",
     },
     points: {
       en: [
-        "Mentor-reviewed scope so the work is realistic and measurable",
+        "Coordinator-reviewed scope so the work is realistic and measurable",
         "Every completed milestone recorded as a verified track record",
         "Ideas that consistently deliver get introduced to partner companies and angel networks",
       ],

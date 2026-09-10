@@ -13,8 +13,8 @@ export default function AiEnginePage() {
       <PageHero
         eyebrow={{ en: "AI Engine", bn: "এআই ইঞ্জিন" }}
         title={{
-          en: "Watch a plain-language problem become a priced, sequenced, verifiable plan",
-          bn: "সহজ ভাষার একটা সমস্যা কীভাবে নির্ধারিত দামের, ক্রমবদ্ধ, যাচাইযোগ্য পরিকল্পনা হয় — দেখুন",
+          en: "Watch a plain-language problem become one priced task and the trial that tests for it",
+          bn: "সহজ ভাষার একটা সমস্যা কীভাবে একটি নির্ধারিত দামের কাজ আর তার পরীক্ষার ট্রায়াল হয় — দেখুন",
         }}
         desc={{
           en: "Write anything a Bangladeshi business owner might actually write — in Bangla or English — and run it through the scoping engine. Every output below is held for human review before it would ever reach a student.",

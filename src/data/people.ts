@@ -1,4 +1,4 @@
-import type { Client, Mentor, Student } from "./types";
+import type { Client, Student } from "./types";
 
 export const STUDENTS: Student[] = [
   {
@@ -81,8 +81,8 @@ export const STUDENTS: Student[] = [
     verified: 7,
     streak: 3,
     bio: {
-      en: "Prepares BOQs for small commercial builds; mentor-checked against IEB conventions every time.",
-      bn: "ছোট বাণিজ্যিক নির্মাণের বিওকিউ তৈরি করেন; প্রতিবার আইইবি কনভেনশনের সাথে মেন্টর যাচাই করেন।",
+      en: "Prepares BOQs for small commercial builds; checked against IEB conventions every time.",
+      bn: "ছোট বাণিজ্যিক নির্মাণের বিওকিউ তৈরি করেন; প্রতিবার আইইবি কনভেনশনের সাথে মিলিয়ে যাচাই করা হয়।",
     },
   },
   {
@@ -171,45 +171,6 @@ export const STUDENTS: Student[] = [
   },
 ];
 
-export const MENTORS: Mentor[] = [
-  {
-    id: "m1",
-    name: { en: "Arif Chowdhury", bn: "আরিফ চৌধুরী" },
-    role: { en: "Senior Engineer", bn: "সিনিয়র ইঞ্জিনিয়ার" },
-    org: { en: "BASIS member firm", bn: "বেসিস সদস্য প্রতিষ্ঠান" },
-    sectorIds: ["it"],
-    reviews: 46,
-    avgTurnaround: { en: "under 18 hours", bn: "১৮ ঘণ্টার কম" },
-  },
-  {
-    id: "m2",
-    name: { en: "Farhana Rahman, ACA", bn: "ফারহানা রহমান, এসিএ" },
-    role: { en: "Chartered Accountant", bn: "চার্টার্ড অ্যাকাউন্ট্যান্ট" },
-    org: { en: "ICAB practising member", bn: "আইসিএবি অনুশীলনরত সদস্য" },
-    sectorIds: ["biz", "admin"],
-    reviews: 31,
-    avgTurnaround: { en: "under 24 hours", bn: "২৪ ঘণ্টার কম" },
-  },
-  {
-    id: "m3",
-    name: { en: "Shamim Reza", bn: "শামীম রেজা" },
-    role: { en: "Creative Director", bn: "ক্রিয়েটিভ ডিরেক্টর" },
-    org: { en: "Independent agency, Dhaka", bn: "স্বাধীন এজেন্সি, ঢাকা" },
-    sectorIds: ["design", "mkt", "content"],
-    reviews: 52,
-    avgTurnaround: { en: "under 20 hours", bn: "২০ ঘণ্টার কম" },
-  },
-  {
-    id: "m4",
-    name: { en: "Engr. Kamrul Islam", bn: "প্রকৌশলী কামরুল ইসলাম" },
-    role: { en: "Structural Engineer", bn: "স্ট্রাকচারাল ইঞ্জিনিয়ার" },
-    org: { en: "IEB member", bn: "আইইবি সদস্য" },
-    sectorIds: ["eng", "agri", "social"],
-    reviews: 24,
-    avgTurnaround: { en: "under 30 hours", bn: "৩০ ঘণ্টার কম" },
-  },
-];
-
 export const CLIENTS: Client[] = [
   {
     id: "c1",
@@ -245,5 +206,22 @@ export const CLIENTS: Client[] = [
 
 export const studentById = (id: string) => STUDENTS.find((s) => s.id === id);
 export const studentBySlug = (slug: string) => STUDENTS.find((s) => s.slug === slug);
-export const mentorById = (id: string) => MENTORS.find((m) => m.id === id);
 export const clientById = (id: string) => CLIENTS.find((c) => c.id === id);
+
+/* ── The coordinator ──────────────────────────────────────────
+
+   There is no mentor layer. One coordinator is the human gate: they
+   approve the AI's scope and trial, verify students, put one person
+   forward for each task, score the finished work against the sector
+   rubric, and release the money once the client accepts.
+   ──────────────────────────────────────────────────────────── */
+
+export const COORDINATOR = {
+  id: "mod1",
+  name: { en: "Sabbir Rahman", bn: "সাব্বির রহমান" },
+  role: { en: "Platform coordinator", bn: "প্ল্যাটফর্ম কোঅর্ডিনেটর" },
+  org: { en: "WorkBridge", bn: "ওয়ার্কব্রিজ" },
+};
+
+/** Every review is signed by a coordinator; the id is kept for the audit trail. */
+export const reviewerById = (_id?: string) => COORDINATOR;
