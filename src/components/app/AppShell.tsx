@@ -3,17 +3,25 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bell, ChevronDown, LogOut, Menu, Search, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Bell, ChevronDown, LogOut, Menu, RotateCcw, Search, Sparkles, X, type LucideIcon } from "lucide-react";
 import Logo from "@/components/Logo";
 import { Avatar, LangToggle } from "@/components/ui";
 import { T, useLang, type L } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
+import type { Role } from "@/lib/api";
+import { DEMO_ROLES, demoHome } from "@/lib/demo/session";
+import { useDemo } from "@/lib/workspace";
 import { cn } from "@/lib/cn";
 
 export type NavItem = { key: string; label: L; icon: LucideIcon; badge?: number };
 
+const ROLE_NAME: Record<Role, L> = {
+  CLIENT: { en: "Client", bn: "ক্লায়েন্ট" },
+  STUDENT: { en: "Student", bn: "শিক্ষার্থী" },
+  MODERATOR: { en: "Moderator", bn: "মডারেটর" },
+};
+
 export default function AppShell({
-  role,
   roleLabel,
   userName,
   userMeta,
@@ -26,7 +34,6 @@ export default function AppShell({
   chatMode = false,
   children,
 }: {
-  role: string;
   roleLabel: L;
   userName: string;
   userMeta: L;
@@ -43,7 +50,25 @@ export default function AppShell({
 }) {
   const { t } = useLang();
   const { logout } = useAuth();
+  // Only set on the public /demo/* routes — a real workspace never shows demo controls.
+  const demo = useDemo();
   const router = useRouter();
+
+  const signOut = () => {
+    if (demo) {
+      // Leaving the demo never touches a real session.
+      router.push("/");
+      return;
+    }
+    logout();
+    router.replace("/login");
+  };
+  const switchDemo = (r: Role) => router.push(demoHome[r]);
+  const resetDemo = async () => {
+    const { resetDemoData } = await import("@/lib/demo/server");
+    resetDemoData();
+    window.location.reload();
+  };
   const [open, setOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
 
@@ -87,15 +112,23 @@ export default function AppShell({
                 <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
                   <T v={{ en: "Account", bn: "অ্যাকাউন্ট" }} />
                 </div>
+                {demo &&
+                  DEMO_ROLES.filter((r) => r !== demo).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => switchDemo(r)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-ink-2 transition-colors hover:bg-canvas-2"
+                    >
+                      <Sparkles className="size-4 text-ink-4" />
+                      <T v={{ en: `Try the ${ROLE_NAME[r].en.toLowerCase()} demo`, bn: `${ROLE_NAME[r].bn} ডেমো দেখুন` }} />
+                    </button>
+                  ))}
                 <button
-                  onClick={() => {
-                    logout();
-                    router.replace("/login");
-                  }}
+                  onClick={signOut}
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-ink-2 transition-colors hover:bg-canvas-2"
                 >
                   <LogOut className="size-4 text-ink-4" />
-                  <T v={{ en: "Sign out", bn: "সাইন আউট" }} />
+                  {demo ? <T v={{ en: "Exit demo", bn: "ডেমো থেকে বের হন" }} /> : <T v={{ en: "Sign out", bn: "সাইন আউট" }} />}
                 </button>
               </div>
             )}
@@ -150,6 +183,42 @@ export default function AppShell({
 
       {/* Main */}
       <div className={cn(!chatMode ? "lg:pl-[252px]" : "flex h-dvh flex-col overflow-hidden")}>
+        {demo && (
+          <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 bg-ink px-5 py-2.5 text-[12.5px] text-white/75 lg:px-8">
+            <span className="flex items-center gap-2 font-medium text-white">
+              <Sparkles className="size-3.5 text-brand-300" />
+              <T v={{ en: "Live demo", bn: "লাইভ ডেমো" }} />
+            </span>
+            <span className="hidden md:inline">
+              <T v={{ en: "Sample data — everything you do stays in this browser tab.", bn: "নমুনা ডেটা — আপনি যা করবেন তা এই ব্রাউজার ট্যাবেই থাকবে।" }} />
+            </span>
+            <div className="flex items-center gap-1" role="group" aria-label={t({ en: "Demo role", bn: "ডেমো রোল" })}>
+              {DEMO_ROLES.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => r !== demo && switchDemo(r)}
+                  aria-pressed={r === demo}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-[12px] transition-colors",
+                    r === demo ? "bg-white text-ink" : "text-white/75 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  {t(ROLE_NAME[r])}
+                </button>
+              ))}
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <button onClick={resetDemo} className="flex items-center gap-1.5 text-white/75 transition-colors hover:text-white">
+                <RotateCcw className="size-3.5" />
+                <T v={{ en: "Reset", bn: "রিসেট" }} />
+              </button>
+              <button onClick={signOut} className="flex items-center gap-1.5 text-white/75 transition-colors hover:text-white">
+                <LogOut className="size-3.5" />
+                <T v={{ en: "Exit demo", bn: "ডেমো থেকে বের হন" }} />
+              </button>
+            </div>
+          </div>
+        )}
         <header className={cn("z-30 border-b border-line bg-white/85 backdrop-blur-md", chatMode ? "shrink-0" : "sticky top-0")}>
           <div className="flex h-16 items-center gap-4 px-5 lg:px-8">
             <button
@@ -177,7 +246,7 @@ export default function AppShell({
             </div>
 
             <LangToggle className="w-[100px]" />
-            {actions}
+            {actions && <div className="hidden sm:block">{actions}</div>}
           </div>
         </header>
 

@@ -292,7 +292,8 @@ export default function Intake() {
                         key={c.id}
                         onClick={() => {
                           setters[step](c.id);
-                          setTimeout(() => setStep((s) => s + 1), 180);
+                          const next = step + 1;
+                          setTimeout(() => setStep(next), 180);
                         }}
                         className={cn(
                           "rounded-[14px] border p-4 text-left transition-all duration-300",
@@ -504,13 +505,15 @@ function IntakeResult({
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2.5">
-          <Button size="md" disabled={verdict.level === "blocked"} icon={<ArrowRight className="size-4" />}>
-            {verdict.level === "blocked" ? (
+          {verdict.level === "blocked" ? (
+            <Button size="md" disabled icon={<ArrowRight className="size-4" />}>
               <T v={{ en: "Raise the budget to continue", bn: "চালিয়ে যেতে বাজেট বাড়ান" }} />
-            ) : (
+            </Button>
+          ) : (
+            <Button size="md" href="/app/client" icon={<ArrowRight className="size-4" />}>
               <T v={{ en: "Send to a coordinator", bn: "কোঅর্ডিনেটরের কাছে পাঠান" }} />
-            )}
-          </Button>
+            </Button>
+          )}
           <Button size="md" variant="secondary" onClick={onReset} icon={<RotateCcw className="size-4" />}>
             <T v={{ en: "Answer again", bn: "আবার উত্তর দিন" }} />
           </Button>

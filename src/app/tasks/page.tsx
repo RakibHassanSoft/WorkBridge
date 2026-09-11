@@ -1,11 +1,8 @@
-import type { Metadata } from "next";
+
 import { Suspense } from "react";
 import PageHero from "@/components/PageHero";
 import TaskBoard from "@/components/tasks/TaskBoard";
 
-export const metadata: Metadata = {
-  title: "Task board",
-};
 
 export default function TasksPage() {
   return (

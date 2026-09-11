@@ -30,7 +30,7 @@ const STATUS_TABS: { key: StatusFilter; label: L; match: (s: TaskStatus) => bool
 type Sort = "latest" | "fee" | "competition";
 
 export default function TaskBoard() {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const n = useNum();
   const params = useSearchParams();
 
@@ -255,7 +255,7 @@ export default function TaskBoard() {
           </p>
         </div>
 
-        {results.length === 0 ? (
+        {results.length === 0 && rest.length === 0 ? (
           <div className="mt-5 rounded-[18px] border border-dashed border-line-2 bg-canvas-2/40 p-12 text-center">
             <Filter className="mx-auto size-5 text-ink-4" />
             <p className="mt-3 text-[15px] font-medium text-ink">
@@ -272,13 +272,15 @@ export default function TaskBoard() {
           </div>
         ) : (
           <>
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {results.map((task, i) => (
-                <Reveal key={task.id} delay={(i % 3) * 50} className="h-full">
-                  <TaskCard task={task} onOpen={() => setOpen(task)} matched={relevant} />
-                </Reveal>
-              ))}
-            </div>
+            {results.length > 0 && (
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {results.map((task, i) => (
+                  <Reveal key={task.id} delay={(i % 3) * 50} className="h-full">
+                    <TaskCard task={task} onOpen={() => setOpen(task)} matched={relevant} />
+                  </Reveal>
+                ))}
+              </div>
+            )}
 
             {rest.length > 0 && (
               <>

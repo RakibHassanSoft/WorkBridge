@@ -19,9 +19,9 @@ const COLS = [
   {
     title: { en: "Demo", bn: "ডেমো" },
     links: [
-      { href: "/app/client", label: { en: "Client workspace", bn: "ক্লায়েন্ট ওয়ার্কস্পেস" } },
-      { href: "/app/student", label: { en: "Student workspace", bn: "শিক্ষার্থী ওয়ার্কস্পেস" } },
-      { href: "/app/moderator", label: { en: "Moderator console", bn: "মডারেটর কনসোল" } },
+      { href: "/demo/client", label: { en: "Client workspace", bn: "ক্লায়েন্ট ওয়ার্কস্পেস" } },
+      { href: "/demo/student", label: { en: "Student workspace", bn: "শিক্ষার্থী ওয়ার্কস্পেস" } },
+      { href: "/demo/moderator", label: { en: "Moderator console", bn: "মডারেটর কনসোল" } },
       { href: "/passport/nusrat-jahan", label: { en: "Work passport", bn: "ওয়ার্ক পাসপোর্ট" } },
     ],
   },

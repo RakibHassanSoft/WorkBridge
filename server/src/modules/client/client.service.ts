@@ -107,13 +107,12 @@ export const clientService = {
   },
 
   listJobs(clientId: string) {
+    // Same detail as a single job: the workspace needs each task's trial (to
+    // check it) and its evaluation (to sign off), not just payment + check.
     return prisma.job.findMany({
       where: { clientId },
       orderBy: { createdAt: "desc" },
-      include: {
-        sector: true,
-        tasks: { include: { payment: true, trialCheck: true } },
-      },
+      include: jobDetailInclude,
     });
   },
 

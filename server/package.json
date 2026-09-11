@@ -1,7 +1,7 @@
 {
   "name": "workbridge-server",
   "version": "1.0.0",
-  "description": "WorkBridge backend — Node.js + Express + TypeScript + Prisma (modular, per-feature folders)",
+  "description": "WorkBridge backend \u2014 Node.js + Express + TypeScript + Prisma (modular, per-feature folders)",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -15,7 +15,8 @@
     "db:reset": "tsx prisma/reset.ts",
     "db:reseed": "tsx prisma/reset.ts && tsx prisma/seed.ts",
     "test": "jest --runInBand",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "check:ui": "node scripts/check-ui-flow.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

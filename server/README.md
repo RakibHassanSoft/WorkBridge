@@ -66,6 +66,18 @@ Full list with notes is in **`DEMO_ACCOUNTS.md`**.
 | Moderator (2) | `mod@demo.wb`, `mod2@demo.wb` |
 | Student (5) | `nusrat@demo.wb`, `tanvir@demo.wb`, `afsana@demo.wb` (verified); `mehedi@demo.wb`, `farzana@demo.wb` (pending) |
 
+### Check the workspaces against the API
+
+`npm run check:ui` walks the whole flow the three workspaces use — post, trial
+check, escrow, scope release, trials, selection, chat, delivery, scoring,
+revision, sign-off, verification, support, disputes, payments and the
+directory — and checks every field the UI reads is in the responses. It changes
+data, so run it on fresh seed data with the server running:
+
+```bash
+npm run db:reseed && npm run check:ui
+```
+
 ## Project layout
 
 ```

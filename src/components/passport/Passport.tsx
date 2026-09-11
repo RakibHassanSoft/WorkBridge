@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -42,6 +42,20 @@ export default function Passport({ slug }: { slug: string }) {
     scored.length > 0
       ? scored.reduce((a, e) => a + e.ev!.scores.reduce((x, s) => x + s.score, 0) / e.ev!.scores.reduce((x, s) => x + s.max, 0), 0) / scored.length
       : student.rating / 5;
+
+  // "Copy link" copies the passport URL; "Add to CV" copies a ready-to-paste CV line.
+  const [copied, setCopied] = useState<"link" | "cv" | null>(null);
+  const copy = async (kind: "link" | "cv") => {
+    const url = window.location.href;
+    const text = kind === "link" ? url : `${student.name.en} — WorkBridge Proof-of-Work passport (verified work record): ${url}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      /* clipboard unavailable (insecure context or permission denied) */
+    }
+  };
 
   const skillStrength = student.skills.slice(0, 5).map((s, i) => ({
     skill: s,
@@ -119,11 +133,11 @@ export default function Passport({ slug }: { slug: string }) {
               </div>
 
               <div className="flex gap-2">
-                <Button size="sm" variant="secondary" icon={<Copy className="size-3.5" />}>
-                  <T v={{ en: "Copy link", bn: "লিংক কপি" }} />
+                <Button size="sm" variant="secondary" onClick={() => copy("link")} icon={<Copy className="size-3.5" />}>
+                  {copied === "link" ? <T v={{ en: "Copied", bn: "কপি হয়েছে" }} /> : <T v={{ en: "Copy link", bn: "লিংক কপি" }} />}
                 </Button>
-                <Button size="sm" icon={<Link2 className="size-3.5" />}>
-                  <T v={{ en: "Add to CV", bn: "সিভিতে যোগ করুন" }} />
+                <Button size="sm" onClick={() => copy("cv")} icon={<Link2 className="size-3.5" />}>
+                  {copied === "cv" ? <T v={{ en: "Copied for your CV", bn: "সিভির জন্য কপি হয়েছে" }} /> : <T v={{ en: "Add to CV", bn: "সিভিতে যোগ করুন" }} />}
                 </Button>
               </div>
             </div>

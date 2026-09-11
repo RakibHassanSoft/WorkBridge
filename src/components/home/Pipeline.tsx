@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Cpu, FileText, Handshake, UserRoundSearch, UserCheck } from "lucide-react";
-import { Reveal, SectionHead } from "@/components/ui";
+import { Reveal } from "@/components/ui";
 import { T, useLang, type L } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 

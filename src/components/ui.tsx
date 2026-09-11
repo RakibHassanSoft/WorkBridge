@@ -6,6 +6,12 @@ import { cn } from "@/lib/cn";
 import { T, useLang, type L } from "@/lib/i18n";
 
 /* ── Reveal on scroll ─────────────────────────────────────────── */
+/**
+ * Content is rendered fully visible on the server, so every page reads
+ * correctly with JavaScript disabled, still loading, or blocked. After
+ * hydration, only elements that start below the fold are hidden and then
+ * faded in as they scroll into view.
+ */
 export function Reveal({
   children,
   delay = 0,
@@ -20,19 +26,20 @@ export function Reveal({
   as?: React.ElementType;
 }) {
   const ref = useRef<HTMLElement | null>(null);
-  const [shown, setShown] = useState(false);
+  const [state, setState] = useState<"static" | "hidden" | "shown">("static");
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setShown(true);
-      return;
-    }
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    // Already on screen: leave it exactly as rendered.
+    if (el.getBoundingClientRect().top < window.innerHeight) return;
+
+    setState("hidden");
     const io = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) {
-          setShown(true);
+          setState("shown");
           io.disconnect();
         }
       },
@@ -42,17 +49,17 @@ export function Reveal({
     return () => io.disconnect();
   }, []);
 
+  const style: React.CSSProperties | undefined =
+    state === "static"
+      ? undefined
+      : {
+          opacity: state === "shown" ? 1 : 0,
+          transform: state === "shown" ? "none" : `translateY(${y}px)`,
+          transition: `opacity .8s cubic-bezier(.16,1,.3,1) ${delay}ms, transform .8s cubic-bezier(.16,1,.3,1) ${delay}ms`,
+        };
+
   return (
-    <Tag
-      ref={ref as React.Ref<HTMLDivElement>}
-      className={className}
-      style={{
-        opacity: shown ? 1 : 0,
-        transform: shown ? "none" : `translateY(${y}px)`,
-        transition: `opacity .8s cubic-bezier(.16,1,.3,1) ${delay}ms, transform .8s cubic-bezier(.16,1,.3,1) ${delay}ms`,
-        willChange: "opacity, transform",
-      }}
-    >
+    <Tag ref={ref} className={className} style={style}>
       {children}
     </Tag>
   );

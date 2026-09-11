@@ -19,6 +19,7 @@ export default function HeroPreview() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const io = new IntersectionObserver(
       ([e]) => {
         if (!e.isIntersecting) return;
@@ -27,14 +28,17 @@ export default function HeroPreview() {
         const tick = () => {
           i += 1;
           setStep(i);
-          if (i < tasks.length + 2) setTimeout(tick, i === 1 ? 900 : 260);
+          if (i < tasks.length + 2) timer = setTimeout(tick, i === 1 ? 900 : 260);
         };
-        setTimeout(tick, 400);
+        timer = setTimeout(tick, 400);
       },
       { threshold: 0.25 }
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      clearTimeout(timer);
+    };
   }, []);
 
   const revealed = Math.max(0, step - 1);

@@ -4,16 +4,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start": "npx serve out",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "lottie-web": "^5.12.2",
     "lucide-react": "^1.43.0",
-    "motion": "^13.2.0",
-    "next": "^15.5.4",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "next": "^16.3.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
@@ -26,5 +26,8 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  }
 }

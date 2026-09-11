@@ -6,9 +6,9 @@ import { useAuth, roleHome } from "@/lib/auth";
 import type { Role } from "@/lib/api";
 
 /**
- * Gates a workspace: sends unauthenticated visitors to /login and users with
- * the wrong role to their own workspace. Renders children only for the matching
- * role. Works with static export (client-side redirect).
+ * Gates a real workspace: sends visitors who are not signed in to /login and
+ * users with the wrong role to their own workspace. Renders children only for
+ * the matching role. Works with static export (client-side redirect).
  */
 export default function RequireRole({
   role,

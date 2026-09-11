@@ -1,6 +1,6 @@
 # WorkBridge — interactive platform prototype
 
-A premium, fully static **Next.js 15** prototype of WorkBridge: a verified-work layer for
+A premium, fully static **Next.js 16** prototype of WorkBridge: a verified-work layer for
 Bangladesh's graduate-to-employment gap. Bilingual (English ⇄ বাংলা), white / forest-green / ink
 design system, and a simulated AI scoping layer that runs entirely in the browser.
 
@@ -50,8 +50,8 @@ npx serve out
 | --- | --- |
 | `/app/client` | Client workspace — overview, posted problems with their AI breakdowns, deliverables awaiting sign-off (interactive), talent and connections, spend |
 | `/app/student` | Student workspace — matched tasks with the matching reasons shown, an active-task workspace with a self-check and submission flow, the verified record, earnings |
-| `/app/mentor` | Mentor console — review queue with a working 1–5 rubric scorer, all nine sector rubrics, verified graduates, and what mentors get |
 | `/app/moderator` | Moderator console — the coordinator gate: AI scope review (approve / re-scope / reject), verification audit of both signatures, the payment ledger with escrow release and refunds, identity checks for businesses, students and mentors, client and student directories with account controls, and platform rules |
+| `/demo/client`, `/demo/student`, `/demo/moderator` | The public **Live demo** — opens that workspace with sample data and no sign-in. It runs on an in-browser copy of the API (`src/lib/demo/`) with the same flow rules, shared across the three roles in one browser tab, with a role switcher, reset and exit in the demo bar |
 | `/passport/[slug]` | The public Proof-of-Work passport — one static page per demo graduate |
 
 ### The AI layer

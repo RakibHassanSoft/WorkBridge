@@ -2,7 +2,7 @@
 
 import { Banknote, Boxes, Lightbulb, LineChart, ShieldCheck, Zap } from "lucide-react";
 import { Reveal, SectionHead } from "@/components/ui";
-import { T, useLang } from "@/lib/i18n";
+import { useLang } from "@/lib/i18n";
 
 const LAYERS = [
   {

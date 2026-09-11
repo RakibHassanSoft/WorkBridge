@@ -1,10 +1,14 @@
 import type { NextConfig } from "next";
 
+// Set by the GitHub Pages workflow (e.g. "/WorkBridge") so every route and
+// asset resolves under the project sub-path. Empty for local dev and root hosts.
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 const nextConfig: NextConfig = {
   output: "export",
+  basePath,
   images: { unoptimized: true },
   trailingSlash: true,
-  eslint: { ignoreDuringBuilds: true },
 };
 
 export default nextConfig;

@@ -19,17 +19,17 @@ const NAV: { href: string; label: L }[] = [
 
 const DEMOS: { href: string; label: L; desc: L }[] = [
   {
-    href: "/app/client",
+    href: "/demo/client",
     label: { en: "Client workspace", bn: "ক্লায়েন্ট ওয়ার্কস্পেস" },
     desc: { en: "Post a problem, review deliverables, sign off", bn: "সমস্যা পোস্ট করুন, ডেলিভারি রিভিউ ও সাইন-অফ" },
   },
   {
-    href: "/app/student",
+    href: "/demo/student",
     label: { en: "Student workspace", bn: "শিক্ষার্থী ওয়ার্কস্পেস" },
     desc: { en: "Matched tasks, submissions, earnings", bn: "ম্যাচ করা টাস্ক, সাবমিশন, আয়" },
   },
   {
-    href: "/app/moderator",
+    href: "/demo/moderator",
     label: { en: "Moderator console", bn: "মডারেটর কনসোল" },
     desc: { en: "Scope review, payments, verification, controls", bn: "স্কোপ রিভিউ, পেমেন্ট, যাচাই, নিয়ন্ত্রণ" },
   },

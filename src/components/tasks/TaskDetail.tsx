@@ -296,7 +296,9 @@ export default function TaskDetail({ id }: { id: string }) {
             </Reveal>
 
             {/* trial task — applying means doing this */}
-            <TrialPanel taskId={id} closed={closed} />
+            <div id="trial" className="scroll-mt-24">
+              <TrialPanel taskId={id} closed={closed} />
+            </div>
 
             {/* live thread on a task in progress */}
             {task.status === "in_progress" && (
@@ -405,7 +407,7 @@ export default function TaskDetail({ id }: { id: string }) {
                         }}
                       />
                     </p>
-                    <Button full size="lg" className="mt-5" icon={<Sparkles className="size-4" />}>
+                    <Button href="#trial" full size="lg" className="mt-5" icon={<Sparkles className="size-4" />}>
                       <T v={{ en: "Do the trial task to apply", bn: "আবেদন করতে ট্রায়াল টাস্ক করুন" }} />
                     </Button>
                     <p className="mt-3 text-center text-[11.5px] text-ink-4">{t(task.dueLabel)}</p>

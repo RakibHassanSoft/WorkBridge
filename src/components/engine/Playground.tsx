@@ -8,7 +8,6 @@ import {
   BadgeCheck,
   Cpu,
   Layers3,
-  ListChecks,
   Lock,
   RefreshCw,
   ScanLine,
@@ -39,7 +38,7 @@ const STAGES: { icon: typeof ScanLine; label: L }[] = [
 type Tab = "tasks" | "risks" | "matches" | "rubric";
 
 export default function Playground() {
-  const { t, tl, lang } = useLang();
+  const { t, lang } = useLang();
   const n = useNum();
 
   const [brief, setBrief] = useState(() => PRESETS[0].brief.en);
@@ -54,7 +53,7 @@ export default function Playground() {
   // Keep the preset text in the reader's language until they edit it.
   const [touched, setTouched] = useState(false);
   useEffect(() => {
-    if (!touched && preset >= 0) setBrief(PRESETS[preset][lang === "bn" ? "brief" : "brief"][lang]);
+    if (!touched && preset >= 0) setBrief(PRESETS[preset].brief[lang]);
   }, [lang, preset, touched]);
 
   const clearTimers = () => {
@@ -559,7 +558,7 @@ function Matches({ result }: { result: ScopeResult }) {
 }
 
 function Rubric({ sectorId }: { sectorId: string }) {
-  const { t, tl } = useLang();
+  const { tl } = useLang();
   const n = useNum();
   const sector = sectorById(sectorId);
   return (
