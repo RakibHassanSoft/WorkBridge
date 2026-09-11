@@ -411,7 +411,7 @@ function TrialBox({ trial }: { trial: NonNullable<Task["trial"]> }) {
   return (
     <div className="rounded-[14px] border border-line bg-white p-4">
       <p className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">
-        <Timer className="size-3.5" /> The trial applicants will do · {trial.minutes} min
+        <Cpu className="size-3.5" /> The trial applicants will do
         {(trial.revision ?? 1) > 1 && <span className="rounded-full bg-brand-50 px-2 py-0.5 normal-case tracking-normal text-brand-700">Rebuilt · v{trial.revision}</span>}
       </p>
       <p className="mt-1.5 text-[13.5px] font-medium text-ink">{trial.title}</p>
@@ -487,38 +487,51 @@ function JobCard({ job, methods, onChange, defaultOpen = false }: { job: Job; me
   };
 
   return (
-    <section className={cn("overflow-hidden rounded-[16px] border bg-white transition-shadow", act ? "border-brand-200 shadow-[0_0_0_3px_rgba(26,155,102,.06)]" : "border-line")}>
-      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center gap-4 px-5 py-4 text-left">
+    <section
+      className={cn(
+        "group overflow-hidden rounded-[18px] border bg-white transition-all duration-300",
+        act && !cancelled
+          ? "border-brand-200 shadow-[0_1px_2px_rgba(10,14,12,.04),0_18px_44px_-28px_rgba(15,127,82,.38)]"
+          : "border-line hover:border-line-2 hover:shadow-[0_1px_2px_rgba(10,14,12,.04),0_16px_38px_-30px_rgba(10,14,12,.28)]",
+        cancelled && "opacity-80"
+      )}
+    >
+      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-start gap-4 px-5 py-4 text-left">
         <span
-          className="grid size-11 shrink-0 place-items-center rounded-[13px] text-white shadow-sm"
+          className="grid size-12 shrink-0 place-items-center rounded-[14px] text-white shadow-sm ring-1 ring-black/5"
           style={{ background: sec?.accent ?? "#0f7f52" }}
           aria-hidden
         >
           {sec ? <SectorIcon name={sec.icon} className="size-5" /> : <Briefcase className="size-5" />}
         </span>
+
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h2 className="truncate text-[15.5px] font-semibold tracking-[-0.015em] text-ink">{job.title}</h2>
+            <h2 className="truncate text-[16px] font-semibold tracking-[-0.02em] text-ink">{job.title}</h2>
             {act && !cancelled && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-600 px-2 py-0.5 text-[10.5px] font-semibold text-white">
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-600 px-2 py-0.5 text-[10.5px] font-semibold text-white shadow-sm">
                 {ACTION_LABEL[act]}
               </span>
             )}
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[12px] text-ink-4">
-            <span className="num">{job.ref}</span>
-            <span>·</span>
-            <span>{job.sector?.name ?? "—"}</span>
-            <span>·</span>
-            <span className="num font-medium text-ink-3">{taka(task.fee)}</span>
-            <span className="hidden sm:inline">·</span>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink-4">
+            <span className="num rounded-md bg-canvas-2 px-1.5 py-0.5 font-medium text-ink-3">{job.ref}</span>
+            <span className="truncate">{job.sector?.name ?? "—"}</span>
+            <span className="hidden text-ink-4 sm:inline">·</span>
             <span className="hidden sm:inline">posted {when(job.createdAt)}</span>
-          </p>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {pay && pay !== "RELEASED" && <StatusBadge status={pay} className="hidden sm:inline-flex" />}
-          <StatusBadge status={task.status === "OPEN" ? job.status : task.status} />
-          <ChevronDown className={cn("size-4 text-ink-4 transition-transform", open && "rotate-180")} />
+
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="hidden flex-col items-end gap-1.5 sm:flex">
+            <span className="num text-[17px] font-semibold leading-none text-ink">{taka(task.fee)}</span>
+            <div className="flex items-center gap-1.5">
+              {pay && pay !== "RELEASED" && <StatusBadge status={pay} />}
+              <StatusBadge status={task.status === "OPEN" ? job.status : task.status} />
+            </div>
+          </div>
+          <StatusBadge status={task.status === "OPEN" ? job.status : task.status} className="sm:hidden" />
+          <ChevronDown className={cn("size-4 shrink-0 text-ink-4 transition-transform duration-300", open && "rotate-180")} />
         </div>
       </button>
 
@@ -537,11 +550,23 @@ function JobCard({ job, methods, onChange, defaultOpen = false }: { job: Job; me
             ))}
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
-            <p className="text-[11px] text-ink-4">
-              <span className="num font-semibold text-ink-3">{doneCount}/{STEPS.length}</span> ·{" "}
-              {nextIdx === -1 ? "Signed off & paid" : `Next: ${STEPS[nextIdx]}`}
+            <p className="flex items-center gap-1.5 text-[11px] text-ink-4">
+              <span className="num font-semibold text-ink-3">{doneCount}/{STEPS.length}</span>
+              <span className="text-ink-4">·</span>
+              {nextIdx === -1 ? (
+                <span className="font-medium text-brand-600">Signed off &amp; paid</span>
+              ) : (
+                <span>Next: <span className="font-medium text-ink-3">{STEPS[nextIdx]}</span></span>
+              )}
             </p>
-            {task.assignee && <p className="truncate text-[11px] text-ink-4">{task.assignee.name}</p>}
+            {task.assignee && (
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-ink-4">
+                <span className="grid size-4 shrink-0 place-items-center rounded-full bg-brand-100 text-[8px] font-bold uppercase text-brand-700">
+                  {task.assignee.name?.[0] ?? "?"}
+                </span>
+                <span className="truncate">{task.assignee.name}</span>
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -598,14 +623,12 @@ function JobCard({ job, methods, onChange, defaultOpen = false }: { job: Job; me
                 </div>
               )}
 
-              {/* live on the board: the AI's shortlist, counts only */}
+              {/* live on the board — no applicant counts; the AI judges and a coordinator selects */}
               {task.status === "MATCHING" && (
                 <div className="rounded-[14px] border border-brand-200 bg-brand-50/40 p-4">
                   <p className="flex items-center gap-2 text-[13px] font-medium text-ink"><Cpu className="size-4 text-brand-600" /> Live on the task board</p>
                   <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">
-                    {task.trialStats?.applicants
-                      ? `${task.trialStats.applicants} student${task.trialStats.applicants === 1 ? " has" : "s have"} done the trial. The AI checked their files: ${task.trialStats.shortlisted} reached 90%+ and ${task.trialStats.shortlisted === 1 ? "is" : "are"} with a coordinator.`
-                      : "Students are doing the trial now. The AI checks every upload and sends only 90%+ work to a coordinator."}
+                    Applicants do the trial and the AI judges every submission against the requirements. A coordinator reviews the strong ones, selects a student and refers them to you.
                   </p>
                 </div>
               )}

@@ -67,7 +67,7 @@ describe("studentService", () => {
       ).rejects.toMatchObject({ statusCode: 400 });
     });
 
-    it("rejects a duplicate application", async () => {
+    it("blocks a third attempt once both tries are used", async () => {
       db.studentProfile.findUnique.mockResolvedValue({ kycStatus: KycStatus.VERIFIED });
       db.task.findUnique.mockResolvedValue({
         id: "t1",
@@ -75,10 +75,38 @@ describe("studentService", () => {
         trialCheck: { status: TrialCheckStatus.APPROVED },
         trial: { id: "tr1", title: "t", brief: "b", mirrors: "m", minutes: 40 },
       });
-      db.trialAttempt.findUnique.mockResolvedValue({ id: "a1" });
+      db.trialAttempt.findUnique.mockResolvedValue({ id: "a1", outcome: TrialOutcome.NOT_SHORTLISTED, tries: 2 });
       await expect(
         studentService.applyToTrial("s1", "t1", { summary: "x".repeat(20), minutesTaken: 30 })
       ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it("blocks redoing a trial that already passed", async () => {
+      db.studentProfile.findUnique.mockResolvedValue({ kycStatus: KycStatus.VERIFIED });
+      db.task.findUnique.mockResolvedValue({
+        id: "t1",
+        status: TaskStatus.MATCHING,
+        trialCheck: { status: TrialCheckStatus.APPROVED },
+        trial: { id: "tr1", title: "t", brief: "b", mirrors: "m", minutes: 40 },
+      });
+      db.trialAttempt.findUnique.mockResolvedValue({ id: "a1", outcome: TrialOutcome.SHORTLISTED, tries: 1 });
+      await expect(
+        studentService.applyToTrial("s1", "t1", { summary: "x".repeat(20), minutesTaken: 30 })
+      ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it("allows a second attempt after a failed first one", async () => {
+      db.studentProfile.findUnique.mockResolvedValue({ kycStatus: KycStatus.VERIFIED });
+      db.task.findUnique.mockResolvedValue(live);
+      db.trialAttempt.findUnique.mockResolvedValue({ id: "a1", outcome: TrialOutcome.NOT_SHORTLISTED, tries: 1 });
+      ai.evaluateAttempt.mockResolvedValue(judged(96, true) as any);
+      db.trialAttempt.update.mockImplementation(({ data }: any) => ({ id: "a1", ...data }));
+      db.trialAttempt.findMany.mockResolvedValue([{ id: "a1", completion: 96, aiScore: 82, submittedAt: new Date("2026-01-02") }]);
+
+      const res = await studentService.applyToTrial("s1", "t1", { summary: "second, better attempt", minutesTaken: 40 });
+      expect(db.trialAttempt.update).toHaveBeenCalled();
+      expect(res.shortlisted).toBe(true);
+      expect(res.triesUsed).toBe(2);
     });
 
     const live = {

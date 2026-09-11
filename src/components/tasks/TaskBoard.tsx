@@ -11,7 +11,6 @@ import {
   Search,
   SlidersHorizontal,
   Timer,
-  Users,
   X,
 } from "lucide-react";
 import SectorIcon from "@/components/SectorIcon";
@@ -66,7 +65,7 @@ const STATUS_TABS: { key: StatusFilter; label: L; match: (s: string) => boolean 
   { key: "all", label: { en: "All", bn: "সব" }, match: () => true },
 ];
 
-type Sort = "latest" | "fee" | "competition";
+type Sort = "latest" | "fee";
 
 function clientLabel(t: BoardTask): string | null {
   const c = t.job?.client;
@@ -85,13 +84,18 @@ function relativeTime(iso: string): { en: string; bn: string } {
   return { en: `${days}d ago`, bn: `${days} দিন আগে` };
 }
 
+// Module-level cache: kept for the life of the tab so navigating away from
+// /tasks and back shows the board instantly (no empty flash, no refetch). A
+// full page reload clears it and fetches fresh.
+let BOARD_CACHE: BoardTask[] | null = null;
+
 export default function TaskBoard() {
   const { t } = useLang();
   const n = useNum();
   const params = useSearchParams();
 
-  const [tasks, setTasks] = useState<BoardTask[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<BoardTask[]>(() => BOARD_CACHE ?? []);
+  const [loading, setLoading] = useState(BOARD_CACHE === null);
   const [error, setError] = useState<string | null>(null);
 
   const [status, setStatus] = useState<StatusFilter>("open");
@@ -104,17 +108,19 @@ export default function TaskBoard() {
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    // Show cached rows immediately; refresh in the background either way.
+    if (BOARD_CACHE === null) setLoading(true);
     api
       .board()
       .then((rows) => {
-        if (alive) {
-          setTasks(rows as BoardTask[]);
-          setError(null);
-        }
+        if (!alive) return;
+        BOARD_CACHE = rows as BoardTask[];
+        setTasks(BOARD_CACHE);
+        setError(null);
       })
       .catch((e: unknown) => {
-        if (alive) setError(e instanceof Error ? e.message : "Could not load the task board");
+        // Only surface an error if we have nothing cached to show.
+        if (alive && BOARD_CACHE === null) setError(e instanceof Error ? e.message : "Could not load the task board");
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -156,7 +162,6 @@ export default function TaskBoard() {
 
     const sorted = [...out];
     if (sort === "fee") sorted.sort((a, b) => b.fee - a.fee);
-    else if (sort === "competition") sorted.sort((a, b) => (a._count?.attempts ?? 0) - (b._count?.attempts ?? 0));
     else sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return sorted;
   }, [tasks, status, sector, skills, query, sort]);
@@ -208,7 +213,6 @@ export default function TaskBoard() {
             >
               <option value="latest">{t({ en: "Latest first", bn: "নতুন আগে" })}</option>
               <option value="fee">{t({ en: "Highest fee", bn: "সর্বোচ্চ ফি" })}</option>
-              <option value="competition">{t({ en: "Fewest applicants", bn: "সবচেয়ে কম আবেদন" })}</option>
             </select>
           </div>
 
@@ -384,7 +388,6 @@ function TaskCard({ task, onOpen }: { task: BoardTask; onOpen: () => void }) {
   const n = useNum();
   const sector = sectorById(task.sectorId ?? "");
   const client = clientLabel(task);
-  const applicants = task._count?.attempts ?? 0;
   const summary = task.job?.aiSummary || task.desc || task.job?.brief || "";
 
   return (
@@ -440,10 +443,6 @@ function TaskCard({ task, onOpen }: { task: BoardTask; onOpen: () => void }) {
             </span>
           </div>
           <div className="flex flex-col items-end gap-1 text-[11.5px] text-ink-4">
-            <span className="num flex items-center gap-1">
-              <Users className="size-3" />
-              {applicants === 0 ? t({ en: "Be first", bn: "প্রথম হোন" }) : `${n(applicants)} ${t({ en: "applied", bn: "আবেদন" })}`}
-            </span>
             <span className="flex items-center gap-1">
               <Clock3 className="size-3" />
               {t(relativeTime(task.createdAt))}
@@ -472,7 +471,6 @@ function TaskDrawer({ task, onClose }: { task: BoardTask | null; onClose: () => 
   const sector = sectorById(task.sectorId ?? "");
   const client = clientLabel(task);
   const city = task.job?.client?.clientProfile?.city ?? null;
-  const applicants = task._count?.attempts ?? 0;
 
   return (
     <div className="fixed inset-0 z-50">
@@ -515,10 +513,9 @@ function TaskDrawer({ task, onClose }: { task: BoardTask | null; onClose: () => 
             </span>
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-2">
+          <div className="mt-5 grid grid-cols-2 gap-2">
             <Stat label={{ en: "Fee", bn: "ফি" }} value={`৳${n(task.fee.toLocaleString("en-US"))}`} />
             <Stat label={{ en: "Estimate", bn: "আনুমানিক" }} value={`${n(task.hours)}h`} />
-            <Stat label={{ en: "Applicants", bn: "আবেদন" }} value={n(applicants)} />
           </div>
 
           {task.job?.aiSummary && (

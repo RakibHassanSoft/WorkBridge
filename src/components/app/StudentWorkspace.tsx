@@ -46,6 +46,8 @@ type Task = {
   skills?: string[];
   acceptance?: string[];
   applied?: boolean;
+  myOutcome?: string | null;
+  myTries?: number;
   progress?: number;
   submissionNote?: string | null;
   submissionFiles?: Attachment[] | null;
@@ -73,6 +75,9 @@ type Attempt = {
   submittedAt: string;
   attachments?: Attachment[];
   task?: { id: string; title: string; status: string } | null;
+  shortlisted?: boolean;
+  triesUsed?: number;
+  triesLeft?: number;
 };
 type PointEntry = { id: string; delta: number; reason: string; createdAt: string; task?: { title: string } | null };
 type Kyc = { status: string; submission?: { status: string; note?: string | null; documents?: { label: string; detail: string; ok: boolean }[]; createdAt?: string } | null };
@@ -352,6 +357,11 @@ function TaskApply({ task, verified, onChange }: { task: Task; verified: boolean
       setResult((await api.student.apply(task.id, summary.trim(), Math.min(600, minutes), files)) as Attempt);
     });
 
+  const passed = task.myOutcome === "SHORTLISTED" || task.myOutcome === "SELECTED";
+  const failedBefore = task.myOutcome === "NOT_SHORTLISTED";
+  const triesUsed = task.myTries ?? 0;
+  const triesLeft = Math.max(0, 2 - triesUsed);
+
   return (
     <section className="overflow-hidden rounded-[16px] border border-line bg-white">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4">
@@ -359,7 +369,7 @@ function TaskApply({ task, verified, onChange }: { task: Task; verified: boolean
           <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-ink">{task.title}</h2>
           <p className="mt-0.5 text-[12px] text-ink-4">{task.job?.ref} · {task.sector?.name ?? "—"} · posted {when(task.createdAt)}</p>
         </div>
-        {task.applied ? <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">Applied</span> : <StatusBadge status={task.status} />}
+        {passed ? <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">Shortlisted</span> : <StatusBadge status={task.status} />}
       </div>
       <div className="space-y-4 p-5">
         <p className="text-[13.5px] leading-relaxed text-ink-3">{task.desc}</p>
@@ -399,24 +409,33 @@ function TaskApply({ task, verified, onChange }: { task: Task; verified: boolean
         )}
 
         {result ? (
-          <div className={cn("space-y-3 rounded-[14px] border p-4", result.outcome === "SHORTLISTED" ? "border-brand-200 bg-brand-50/40" : "border-warn/25 bg-warn-bg/40")}>
+          <div className={cn("space-y-3 rounded-[14px] border p-4", result.shortlisted ? "border-brand-200 bg-brand-50/40" : "border-warn/25 bg-warn-bg/40")}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-[13px] font-medium text-ink">
-                {result.outcome === "SHORTLISTED"
+                {result.shortlisted
                   ? `Shortlisted${result.rank ? ` — ranked #${result.rank}` : ""}. Your trial is with a coordinator.`
-                  : `Below the ${SHORTLIST_BAR}% bar — this trial will not reach a coordinator.`}
+                  : `Below the ${SHORTLIST_BAR}% bar${(result.triesLeft ?? 0) > 0 ? " — review the checklist and try once more." : ". No attempts left for this task."}`}
               </p>
-              <AttemptBadge a={result} />
+              {result.shortlisted && <AttemptBadge a={result} />}
             </div>
             <Checklist completion={result.completion ?? 0} rows={result.checklist} flags={result.aiFlags} />
             {result.aiCoaching && <p className="rounded-[10px] bg-white px-3 py-2 text-[12px] leading-relaxed text-ink-3"><span className="font-medium text-ink-2">Coaching (only you see this): </span>{result.aiCoaching}</p>}
+            {!result.shortlisted && (result.triesLeft ?? 0) > 0 && (
+              <Button size="sm" onClick={() => { setResult(null); setOpen(true); setSummary(""); setFiles([]); setMins(""); }} icon={<Sparkles className="size-4" />}>
+                Try again — attempt {(result.triesUsed ?? 1) + 1} of 2
+              </Button>
+            )}
           </div>
-        ) : task.applied ? (
-          <Notice tone="success">Trial submitted and checked by the AI — see your completion and checklist in Trials &amp; points.</Notice>
+        ) : passed ? (
+          <Notice tone="success">Your trial passed the AI check and is with a coordinator. See your completion and checklist in Trials &amp; points.</Notice>
         ) : !verified ? (
           <p className="text-[12.5px] text-warn">Verify your account to apply to this task.</p>
+        ) : triesLeft <= 0 ? (
+          <Notice tone="info">You&apos;ve used both of your attempts for this task.</Notice>
         ) : !open ? (
-          <Button onClick={() => setOpen(true)} icon={<Sparkles className="size-4" />}>Do the trial to apply</Button>
+          <Button onClick={() => setOpen(true)} icon={<Sparkles className="size-4" />}>
+            {failedBefore ? `Try again — attempt ${triesUsed + 1} of 2` : "Do the trial to apply"}
+          </Button>
         ) : (
           <div className="space-y-3 rounded-[14px] border border-line p-4">
             <label className="block">
@@ -451,7 +470,7 @@ function TaskApply({ task, verified, onChange }: { task: Task; verified: boolean
               <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             </div>
             <p className="text-[11.5px] text-ink-4">
-              {summary.trim().length < 10 ? "Write at least a sentence. " : ""}One attempt per task. The AI rewards flagging what the brief left unclear instead of guessing.
+              {summary.trim().length < 10 ? "Write at least a sentence. " : ""}Two attempts per task — a failed attempt isn&apos;t kept or counted against you. The AI rewards flagging what the brief left unclear instead of guessing.
             </p>
             {err && <Notice tone="error">{err}</Notice>}
           </div>

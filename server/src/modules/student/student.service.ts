@@ -122,10 +122,13 @@ export const studentService = {
     });
     const mine = await prisma.trialAttempt.findMany({
       where: { studentId, taskId: { in: tasks.map((t) => t.id) } },
-      select: { taskId: true },
+      select: { taskId: true, outcome: true, tries: true },
     });
-    const applied = new Set(mine.map((m) => m.taskId));
-    return tasks.map((t) => ({ ...t, applied: applied.has(t.id) }));
+    const byTask = new Map(mine.map((m) => [m.taskId, m]));
+    return tasks.map((t) => {
+      const a = byTask.get(t.id);
+      return { ...t, applied: !!a, myOutcome: a?.outcome ?? null, myTries: a?.tries ?? 0 };
+    });
   },
 
   async taskDetail(taskId: string) {
@@ -158,10 +161,19 @@ export const studentService = {
     }
     if (!task.trial) throw AppError.badRequest("This task has no trial");
 
-    const already = await prisma.trialAttempt.findUnique({
+    // Up to TWO attempts per task: the first to find the problem, the second to
+    // fix it. A passed (shortlisted/selected) trial cannot be redone.
+    const existing = await prisma.trialAttempt.findUnique({
       where: { taskId_studentId: { taskId, studentId } },
     });
-    if (already) throw AppError.conflict("You have already applied to this task");
+    if (existing) {
+      if (existing.outcome === TrialOutcome.SHORTLISTED || existing.outcome === TrialOutcome.SELECTED) {
+        throw AppError.conflict("Your trial already passed and is with a coordinator");
+      }
+      if ((existing.tries ?? 1) >= 2) {
+        throw AppError.conflict("You have used both of your attempts for this task");
+      }
+    }
 
     // Other students' work on this task, so a copied upload is caught.
     const peerRows = await prisma.trialAttempt.findMany({ where: { taskId }, select: { attachments: true } });
@@ -179,16 +191,21 @@ export const studentService = {
       peers,
     });
 
-    const attempt = await prisma.trialAttempt.create({
-      data: {
-        taskId,
-        studentId,
+    const tries = (existing?.tries ?? 0) + 1;
+
+    // A failed trial is never a mark against the student and is never kept: a
+    // student is only marked down if they are SELECTED and then fail the real
+    // task. So we store the full attempt only when it PASSES (the moderator
+    // judges those); a failed attempt leaves only a minimal counter row so the
+    // student still gets a second try, with no work data retained.
+    if (evaluation.shortlisted) {
+      const data = {
         summary: input.summary,
         minutesTaken: input.minutesTaken,
         // base64 image/PDF data was for the judge only — never stored
         attachments: input.attachments
           ? (stripBinary(input.attachments) as unknown as Prisma.InputJsonValue)
-          : undefined,
+          : Prisma.JsonNull,
         aiScore: evaluation.score,
         completion: evaluation.completion,
         checklist: evaluation.checklist as unknown as Prisma.InputJsonValue,
@@ -196,18 +213,62 @@ export const studentService = {
         aiSource: evaluation.source,
         aiVerdict: evaluation.verdict,
         aiCoaching: evaluation.coaching,
-        outcome: evaluation.shortlisted ? TrialOutcome.SHORTLISTED : TrialOutcome.NOT_SHORTLISTED,
+        outcome: TrialOutcome.SHORTLISTED,
         points: 0,
-      },
-    });
+        tries,
+      };
+      const attempt = existing
+        ? await prisma.trialAttempt.update({ where: { id: existing.id }, data })
+        : await prisma.trialAttempt.create({ data: { taskId, studentId, ...data } });
 
-    const rank = await this.rerankShortlist(taskId, attempt.id);
+      const rank = await this.rerankShortlist(taskId, attempt.id);
+      return {
+        ...attempt,
+        rank: rank ?? 0,
+        shortlisted: true,
+        bar: SHORTLIST_BAR,
+        breakdown: evaluation.breakdown,
+        triesUsed: tries,
+        triesLeft: 2 - tries,
+      };
+    }
+
+    // Failed — keep no work data, only the counter.
+    const failed = {
+      summary: null,
+      minutesTaken: 0,
+      attachments: Prisma.JsonNull,
+      aiScore: 0,
+      completion: 0,
+      checklist: Prisma.JsonNull,
+      aiFlags: [] as string[],
+      aiSource: evaluation.source,
+      aiVerdict: null,
+      aiCoaching: null,
+      rank: 0,
+      outcome: TrialOutcome.NOT_SHORTLISTED,
+      points: 0,
+      tries,
+    };
+    const attempt = existing
+      ? await prisma.trialAttempt.update({ where: { id: existing.id }, data: failed })
+      : await prisma.trialAttempt.create({ data: { taskId, studentId, ...failed } });
+
+    // The evaluation is returned so the student can see what to improve for the
+    // second attempt, but none of it is persisted.
     return {
-      ...attempt,
-      rank: rank ?? 0,
-      shortlisted: evaluation.shortlisted,
+      id: attempt.id,
+      shortlisted: false,
       bar: SHORTLIST_BAR,
+      completion: evaluation.completion,
+      checklist: evaluation.checklist,
+      aiFlags: evaluation.flags,
+      aiVerdict: evaluation.verdict,
+      aiCoaching: evaluation.coaching,
       breakdown: evaluation.breakdown,
+      rank: 0,
+      triesUsed: tries,
+      triesLeft: 2 - tries,
     };
   },
 
