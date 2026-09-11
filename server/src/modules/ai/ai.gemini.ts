@@ -67,7 +67,7 @@ export async function geminiScope(
   brief: string,
   opts: { budget?: number } = {}
 ): Promise<(Partial<ScopeResult> & { trialPlan?: GeminiTrial; features?: string[] }) | null> {
-  const prompt = `You are the scoping engine for WorkBridge, a verified-work platform in Bangladesh that connects small businesses with university students.
+  const prompt = `You are the scoping engine for BDFreshers, a verified-work platform in Bangladesh that connects small businesses with university students.
 Read this client brief (and any attached documents) and return STRICT JSON only, no prose.
 
 Brief: """${brief.slice(0, 30000)}"""
@@ -104,7 +104,7 @@ export async function geminiRebuildTrial(input: {
   current: { title: string; brief: string; requirements: string[] };
   note: string;
 }): Promise<GeminiTrial | null> {
-  const prompt = `You wrote a trial task for WorkBridge applicants; the client asked for changes. Rewrite the trial so it follows the client's instruction while still being a small copy of their real task. Return STRICT JSON only.
+  const prompt = `You wrote a trial task for BDFreshers applicants; the client asked for changes. Rewrite the trial so it follows the client's instruction while still being a small copy of their real task. Return STRICT JSON only.
 
 Real task brief: """${input.brief.slice(0, 20000)}"""
 Sector: ${input.sectorName}. Real task: about ${input.hours} hours.
@@ -182,7 +182,7 @@ export async function geminiJudgeAttempt(input: {
     }
   }
 
-  const prompt = `You are the strict, fair evaluator for a WorkBridge trial. Students apply for paid work by doing this small trial; your judgement decides whether their attempt reaches the ${SHORTLIST_BAR}% completion bar and is sent to a human moderator. Return STRICT JSON only.
+  const prompt = `You are the strict, fair evaluator for a BDFreshers trial. Students apply for paid work by doing this small trial; your judgement decides whether their attempt reaches the ${SHORTLIST_BAR}% completion bar and is sent to a human moderator. Return STRICT JSON only.
 
 TRIAL: ${input.trialTitle}
 TRIAL BRIEF: ${input.trialBrief}

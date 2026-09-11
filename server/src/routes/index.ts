@@ -12,7 +12,7 @@ import { sendSuccess } from "@/utils/apiResponse";
 const router = Router();
 
 router.get("/health", (_req, res) => {
-  res.json({ success: true, message: "WorkBridge API is healthy" });
+  res.json({ success: true, message: "BDFreshers API is healthy" });
 });
 
 // Public task board — the /tasks page. Real tasks from the database, no auth.

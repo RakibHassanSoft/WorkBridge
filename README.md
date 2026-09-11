@@ -1,6 +1,6 @@
-# WorkBridge — interactive platform prototype
+# BDFreshers — interactive platform prototype
 
-A premium, fully static **Next.js 16** prototype of WorkBridge: a verified-work layer for
+A premium, fully static **Next.js 16** prototype of BDFreshers: a verified-work layer for
 Bangladesh's graduate-to-employment gap. Bilingual (English ⇄ বাংলা), white / forest-green / ink
 design system, and a simulated AI scoping layer that runs entirely in the browser.
 
@@ -133,4 +133,4 @@ src/
 
 Every business, graduate, mentor, project and number in this prototype is demonstration data,
 labelled as such in the interface. The roadmap, phases, risks, sectors and fee ranges follow the
-WorkBridge proposal; the people and projects are invented to make the flows legible.
+BDFreshers proposal; the people and projects are invented to make the flows legible.

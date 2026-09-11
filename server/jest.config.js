@@ -8,5 +8,6 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   clearMocks: true,
+  setupFiles: ["<rootDir>/jest.setup.js"],
   collectCoverageFrom: ["src/**/*.ts", "!src/**/*.test.ts", "!src/server.ts"],
 };

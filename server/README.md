@@ -1,8 +1,8 @@
-# WorkBridge — Backend API
+# BDFreshers — Backend API
 
 Node.js + Express + TypeScript + Prisma (PostgreSQL). Modular, one folder per
 feature, with a service/controller/validator/route/model split and unit tests.
-Designed to line up with the WorkBridge frontend (`../src`) — the Prisma schema
+Designed to line up with the BDFreshers frontend (`../src`) — the Prisma schema
 mirrors `src/data/types.ts`, and roles map to the client / student / moderator
 workspaces.
 

@@ -75,7 +75,7 @@ export default function SiteFooter() {
         </div>
 
         <div className="mt-14 flex flex-col gap-3 border-t border-line pt-7 text-[12.5px] text-ink-4 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} WorkBridge. Dhaka, Bangladesh.</p>
+          <p>© {new Date().getFullYear()} BDFreshers. Dhaka, Bangladesh.</p>
           <p className="flex items-center gap-2">
             <span className="size-1.5 rounded-full bg-brand-400" />
             <T

@@ -31,7 +31,7 @@ export default function Hero() {
             <T v={{ en: "A degree says you studied.", bn: "ডিগ্রি বলে আপনি পড়েছেন।" }} />
             <br />
             <span className="text-brand-600">
-              <T v={{ en: "WorkBridge proves you can ", bn: "WorkBridge প্রমাণ করে আপনি " }} />
+              <T v={{ en: "BDFreshers proves you can ", bn: "BDFreshers প্রমাণ করে আপনি " }} />
               <span className="relative inline-block whitespace-nowrap">
                 <span className="relative z-10">
                   <T v={{ en: "work.", bn: "কাজ পারেন।" }} />

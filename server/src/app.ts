@@ -29,7 +29,7 @@ export function createApp(): Application {
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message: "WorkBridge server is running 🚀",
+    message: "BDFreshers server is running 🚀",
   });
 });
 

@@ -55,8 +55,8 @@ export default function About() {
               eyebrow={{ en: "Long term", bn: "দীর্ঘমেয়াদে" }}
               title={{ en: "What this changes if it works", bn: "কাজ করলে এটা যা বদলে দেবে" }}
               desc={{
-                en: "In the long run WorkBridge is less a marketplace than a data layer — a record of who can actually do what, and what the market is really buying.",
-                bn: "দীর্ঘমেয়াদে WorkBridge মার্কেটপ্লেসের চেয়ে বেশি একটা ডেটা লেয়ার — কে আসলে কী পারে, আর বাজার সত্যিই কী কিনছে, তার রেকর্ড।",
+                en: "In the long run BDFreshers is less a marketplace than a data layer — a record of who can actually do what, and what the market is really buying.",
+                bn: "দীর্ঘমেয়াদে BDFreshers মার্কেটপ্লেসের চেয়ে বেশি একটা ডেটা লেয়ার — কে আসলে কী পারে, আর বাজার সত্যিই কী কিনছে, তার রেকর্ড।",
               }}
             />
           </Reveal>
@@ -161,10 +161,10 @@ export default function About() {
                 />
               </p>
               <a
-                href="mailto:hello@workbridge.bd"
+                href="mailto:hello@bdfreshers.bd"
                 className="group mt-6 inline-flex items-center gap-2 rounded-[12px] bg-white px-5 py-3 text-[14px] font-medium text-ink transition-all hover:-translate-y-px"
               >
-                hello@workbridge.bd
+                hello@bdfreshers.bd
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </a>
             </div>

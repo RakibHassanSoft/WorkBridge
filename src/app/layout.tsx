@@ -30,14 +30,14 @@ const bengali = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "WorkBridge — Proof of work for every graduate",
-    template: "%s · WorkBridge",
+    default: "BDFreshers — Proof of work for every graduate",
+    template: "%s · BDFreshers",
   },
   description:
-    "WorkBridge turns Bangladesh's graduates into verified professionals. A business posts a real problem, the AI prices it and writes a short trial, students apply by doing that trial, and the finished work is signed off by a coordinator and the client — proof that follows the graduate for life.",
-  keywords: ["WorkBridge", "Bangladesh", "graduate employment", "verified work experience", "SME", "micro-tasks"],
+    "BDFreshers turns Bangladesh's graduates into verified professionals. A business posts a real problem, the AI prices it and writes a short trial, students apply by doing that trial, and the finished work is signed off by a coordinator and the client — proof that follows the graduate for life.",
+  keywords: ["BDFreshers", "Bangladesh", "graduate employment", "verified work experience", "SME", "micro-tasks"],
   openGraph: {
-    title: "WorkBridge — Proof of work for every graduate",
+    title: "BDFreshers — Proof of work for every graduate",
     description: "A verified-work layer for Bangladesh's graduate-to-employment gap.",
     type: "website",
   },

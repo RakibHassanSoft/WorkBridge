@@ -77,7 +77,7 @@ export default function Comparison() {
 
           <div className="grid gap-3 bg-ink px-7 py-7 text-white lg:grid-cols-[220px_1fr] lg:gap-6">
             <div className="text-[15px] font-semibold tracking-[-0.02em]">
-              WorkBridge
+              BDFreshers
               <span className="mt-1.5 block text-[11px] font-medium uppercase tracking-[0.12em] text-brand-300">
                 <T v={{ en: "A layer, not a rival", bn: "একটি লেয়ার, প্রতিদ্বন্দ্বী নয়" }} />
               </span>

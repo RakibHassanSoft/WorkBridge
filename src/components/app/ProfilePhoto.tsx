@@ -146,7 +146,7 @@ export default function ProfilePhotoCard({
   };
 
   return (
-    <Panel title={{ en: "Profile photo", bn: "প্রোফাইল ছবি" }} desc={{ en: "Shown next to your name across WorkBridge", bn: "ওয়ার্কব্রিজ জুড়ে আপনার নামের পাশে দেখানো হয়" }}>
+    <Panel title={{ en: "Profile photo", bn: "প্রোফাইল ছবি" }} desc={{ en: "Shown next to your name across BDFreshers", bn: "BDFreshers জুড়ে আপনার নামের পাশে দেখানো হয়" }}>
       <div className="p-5">
         {file ? (
           <Cropper file={file} onDone={onDone} onCancel={() => setFile(null)} />

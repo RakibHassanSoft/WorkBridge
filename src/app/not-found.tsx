@@ -18,7 +18,7 @@ export default function NotFound() {
           href="/"
           className="mt-7 inline-flex items-center gap-2 rounded-[12px] bg-ink px-5 py-3 text-[14px] font-medium text-white transition-all hover:-translate-y-px hover:bg-ink-2"
         >
-          Back to WorkBridge
+          Back to BDFreshers
         </Link>
       </div>
     </section>

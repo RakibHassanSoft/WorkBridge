@@ -4,6 +4,7 @@ jest.mock("@/config/prisma", () => ({
   __esModule: true,
   default: {
     job: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    sector: { upsert: jest.fn() },
     task: { findUnique: jest.fn(), update: jest.fn() },
     trialCheck: { update: jest.fn() },
     trial: { update: jest.fn() },

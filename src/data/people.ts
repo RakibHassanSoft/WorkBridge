@@ -220,7 +220,7 @@ export const COORDINATOR = {
   id: "mod1",
   name: { en: "Sabbir Rahman", bn: "সাব্বির রহমান" },
   role: { en: "Platform coordinator", bn: "প্ল্যাটফর্ম কোঅর্ডিনেটর" },
-  org: { en: "WorkBridge", bn: "ওয়ার্কব্রিজ" },
+  org: { en: "BDFreshers", bn: "BDFreshers" },
 };
 
 /** Every review is signed by a coordinator; the id is kept for the audit trail. */

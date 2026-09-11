@@ -75,7 +75,7 @@ export const clientService = {
 
     const job = await prisma.job.create({
       data: {
-        ref: genRef("WB"),
+        ref: genRef("BD"),
         client: { connect: { id: clientId } },
         title: input.title?.trim() || scope.title,
         brief: input.brief,

@@ -10,7 +10,7 @@ async function bootstrap() {
 
   const server = app.listen(env.port, () => {
     // eslint-disable-next-line no-console
-    console.log(`WorkBridge API listening on http://localhost:${env.port} (${env.nodeEnv})`);
+    console.log(`BDFreshers API listening on http://localhost:${env.port} (${env.nodeEnv})`);
   });
 
   const shutdown = async (signal: string) => {

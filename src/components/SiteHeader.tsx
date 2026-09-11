@@ -74,7 +74,7 @@ export default function SiteHeader() {
       )}
     >
       <div className="shell flex h-16 items-center justify-between gap-6">
-        <Link href="/" aria-label="WorkBridge home">
+        <Link href="/" aria-label="BDFreshers home">
           <Logo />
         </Link>
 

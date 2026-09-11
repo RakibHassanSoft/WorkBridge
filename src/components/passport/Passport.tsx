@@ -47,7 +47,7 @@ export default function Passport({ slug }: { slug: string }) {
   const [copied, setCopied] = useState<"link" | "cv" | null>(null);
   const copy = async (kind: "link" | "cv") => {
     const url = window.location.href;
-    const text = kind === "link" ? url : `${student.name.en} — WorkBridge Proof-of-Work passport (verified work record): ${url}`;
+    const text = kind === "link" ? url : `${student.name.en} — BDFreshers Proof-of-Work passport (verified work record): ${url}`;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(kind);
@@ -75,7 +75,7 @@ export default function Passport({ slug }: { slug: string }) {
           <Reveal>
             <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-4">
               <Link href="/" className="transition-colors hover:text-ink">
-                WorkBridge
+                BDFreshers
               </Link>
               <span>/</span>
               <span>

@@ -1,5 +1,5 @@
 /**
- * WorkBridge scoping engine — DEMONSTRATION ONLY.
+ * BDFreshers scoping engine — DEMONSTRATION ONLY.
  *
  * This is a deterministic, rule-based simulation of the Phase 2 AI layer.
  * It reads a plain-language brief, detects which sector the work belongs to,

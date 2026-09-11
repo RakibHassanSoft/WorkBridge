@@ -12,7 +12,7 @@ export default function Logo({ className, mark = false }: { className?: string; 
       </span>
       {!mark && (
         <span className="text-[17px] font-semibold tracking-[-0.03em] text-ink" style={{ fontFamily: "var(--font-display)" }}>
-          Work<span className="text-brand-600">Bridge</span>
+          BD<span className="text-brand-600">Freshers</span>
         </span>
       )}
     </span>

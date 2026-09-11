@@ -1,5 +1,5 @@
 /**
- * WorkBridge API client — the single place the frontend talks to the backend.
+ * BDFreshers API client — the single place the frontend talks to the backend.
  * Every backend endpoint has a typed function here. The base URL comes from
  * NEXT_PUBLIC_API_URL and defaults to the local dev server, so it works with no
  * env file. The JWT is read from localStorage on each request.

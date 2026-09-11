@@ -1,5 +1,5 @@
 /**
- * WorkBridge AI judge — the part of the AI layer that
+ * BDFreshers AI judge — the part of the AI layer that
  *   1. turns a client's brief into a SMALL COPY of the real task (same
  *      features, a fraction of the volume) with a checkable requirement list, and
  *   2. evaluates what a student uploads for that trial: every requirement is

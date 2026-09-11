@@ -56,7 +56,7 @@ export default function HeroPreview() {
           </div>
           <div className="mx-auto flex items-center gap-2 rounded-md bg-white px-3 py-1 text-[11.5px] text-ink-4 ring-1 ring-line">
             <ShieldCheck className="size-3 text-brand-500" />
-            workbridge.bd/app/client/{job.ref.toLowerCase()}
+            bdfreshers.bd/app/client/{job.ref.toLowerCase()}
           </div>
           <span className="hidden text-[11px] text-ink-4 sm:block">{job.ref}</span>
         </div>
