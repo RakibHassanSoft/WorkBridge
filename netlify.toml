@@ -1,0 +1,15 @@
+# Netlify configuration for the WorkBridge frontend (static Next.js export).
+# The frontend lives at the repo root; the Express API in /server is deployed
+# separately (Render) and is NOT built here.
+
+[build]
+  command = "npm run build"   # next build -> static site in ./out (output: "export")
+  publish = "out"
+
+[build.environment]
+  NODE_VERSION = "20"         # Next 16 / React 19 require Node >= 20.9
+  # Treat this as a plain static site; skip Netlify's Next.js SSR runtime.
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+  # Do NOT set NEXT_PUBLIC_BASE_PATH here — Netlify serves at the root.
+  # Set NEXT_PUBLIC_API_URL in the Netlify UI (Site settings > Environment variables):
+  #   NEXT_PUBLIC_API_URL = https://bdfreshers.onrender.com/api/v1
