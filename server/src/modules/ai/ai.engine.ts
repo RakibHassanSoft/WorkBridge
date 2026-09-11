@@ -208,6 +208,16 @@ export function toTaskLevelStr(hours: number): TaskLevelStr {
   return hours <= 5 ? "micro" : hours <= 14 ? "standard" : "advanced";
 }
 
+/**
+ * Reference data for a sector, used to create the Sector row on demand when a
+ * job is posted against a database that was never seeded. Falls back to the
+ * admin sector's name for an unknown id (ids always come from the engine).
+ */
+export function sectorSeed(id: string): { id: string; name: string; rateFloor: number } {
+  const base = SECTOR_BASE[id] ?? SECTOR_BASE.admin;
+  return { id, name: base.name, rateFloor: RATE_FLOOR[id] ?? 300 };
+}
+
 export function priceCheck(
   totalFee: number,
   totalHours: number,

@@ -11,6 +11,7 @@ import {
 import prisma from "@/config/prisma";
 import { AppError } from "@/utils/AppError";
 import { aiService } from "@/modules/ai/ai.service";
+import { sectorSeed } from "@/modules/ai/ai.engine";
 import { taskService } from "@/modules/task/task.service";
 import { genRef } from "@/utils/ref";
 import { toTaskLevel, jobDetailInclude } from "./client.model";
@@ -60,6 +61,17 @@ export const clientService = {
     const scope = await aiService.scope(briefForScope, { budget: input.budget });
     const postedFee =
       input.budget && input.budget > 0 ? input.budget : scope.suggestedFee;
+
+    // Reference data: make sure the Sector row exists before we connect the job
+    // and task to it. On a database that was never seeded there are no sectors,
+    // and a plain `connect` would throw P2025 ("Record not found"). Upsert keeps
+    // posting working with no seed, and is a no-op once the sector exists.
+    const sector = sectorSeed(scope.sectorId);
+    await prisma.sector.upsert({
+      where: { id: sector.id },
+      update: {},
+      create: sector,
+    });
 
     const job = await prisma.job.create({
       data: {
