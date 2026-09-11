@@ -38,4 +38,16 @@ export const env = {
   // A value that is not a model id (e.g. a label pasted by mistake) would make
   // every call 404 and silently fall back to the engine — use the default then.
   geminiModel: /^gemini-[\w.-]+$/.test(process.env.GEMINI_MODEL ?? "") ? (process.env.GEMINI_MODEL as string) : "gemini-3.6-flash",
+
+  // Public URLs used to build SSLCommerz redirect + callback links.
+  appUrl: process.env.APP_URL ?? "http://localhost:3000",
+  apiUrl: process.env.PUBLIC_API_URL ?? `http://localhost:${Number(process.env.PORT ?? 4000)}/api/v1`,
+
+  // SSLCommerz payment gateway. Empty store id/password -> gateway disabled
+  // (the escrow is held immediately, as in local dev).
+  sslcommerz: {
+    storeId: process.env.SSLCOMMERZ_STORE_ID ?? "",
+    storePassword: process.env.SSLCOMMERZ_STORE_PASSWORD ?? "",
+    isLive: process.env.SSLCOMMERZ_IS_LIVE === "true",
+  },
 };

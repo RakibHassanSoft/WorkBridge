@@ -311,6 +311,7 @@ model Payment {
   client    User      @relation("ClientPayments", fields: [clientId], references: [id])
   amount    Int
   method    String?
+  tranId    String?   @unique // SSLCommerz transaction id, set when a gateway session opens
   status    PayStatus @default(AWAITING)
   note      String?
   createdAt DateTime  @default(now())

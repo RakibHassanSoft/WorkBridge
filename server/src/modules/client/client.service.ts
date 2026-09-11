@@ -12,6 +12,8 @@ import prisma from "@/config/prisma";
 import { AppError } from "@/utils/AppError";
 import { aiService } from "@/modules/ai/ai.service";
 import { sectorSeed } from "@/modules/ai/ai.engine";
+import { env } from "@/config/env";
+import { initSession, sslcommerzEnabled } from "@/modules/payment/sslcommerz";
 import { taskService } from "@/modules/task/task.service";
 import { genRef } from "@/utils/ref";
 import { toTaskLevel, jobDetailInclude } from "./client.model";
@@ -284,6 +286,38 @@ export const clientService = {
       methodLabel = pm.label;
     }
 
+    // With SSLCommerz configured, open a gateway session and send the client
+    // there to pay. The escrow only becomes HELD once the gateway confirms the
+    // transaction (via the success/IPN callback -> paymentService.confirm).
+    if (sslcommerzEnabled()) {
+      const client = await prisma.user.findUnique({
+        where: { id: clientId },
+        select: { name: true, email: true, phone: true },
+      });
+      const tranId = genRef("TXN");
+      await prisma.payment.update({ where: { taskId }, data: { tranId, method: methodLabel } });
+
+      const gatewayUrl = await initSession({
+        amount: task.fee,
+        tranId,
+        productName: task.title,
+        customer: {
+          name: client?.name ?? "Client",
+          email: client?.email ?? "client@bdfreshers.bd",
+          phone: client?.phone,
+        },
+        successUrl: `${env.apiUrl}/payments/sslcommerz/success`,
+        failUrl: `${env.apiUrl}/payments/sslcommerz/fail`,
+        cancelUrl: `${env.apiUrl}/payments/sslcommerz/cancel`,
+        ipnUrl: `${env.apiUrl}/payments/sslcommerz/ipn`,
+      });
+      if (!gatewayUrl) {
+        throw AppError.badRequest("Could not start the payment session. Please try again.");
+      }
+      return { gatewayUrl, fairPrice: price };
+    }
+
+    // No gateway configured (local dev): hold the escrow immediately.
     const updated = await prisma.payment.update({
       where: { taskId },
       data: {
@@ -293,7 +327,7 @@ export const clientService = {
       },
     });
 
-    return { payment: updated, fairPrice: price };
+    return { payment: updated, fairPrice: price, gatewayUrl: null };
   },
 
   /**

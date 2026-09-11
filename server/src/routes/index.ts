@@ -8,6 +8,7 @@ import supportRoutes from "@/modules/support/support.route";
 import { taskService } from "@/modules/task/task.service";
 import { catchAsync } from "@/utils/catchAsync";
 import { sendSuccess } from "@/utils/apiResponse";
+import paymentRoutes from "@/modules/payment/payment.route";
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.get(
   })
 );
 
+router.use("/payments", paymentRoutes);
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/client", clientRoutes);

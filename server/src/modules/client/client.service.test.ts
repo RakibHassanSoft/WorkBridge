@@ -66,7 +66,7 @@ describe("clientService", () => {
 
       const arg = db.job.create.mock.calls[0][0];
       const taskData = arg.data.tasks.create;
-      expect(arg.data.ref).toMatch(/^WB-/);
+      expect(arg.data.ref).toMatch(/^BD-/);
       expect(arg.data.budget).toBe(6000); // no budget -> suggestedFee
       expect(taskData.fee).toBe(6000);
       expect(taskData.trialCheck.create.status).toBe(TrialCheckStatus.AWAITING_CLIENT);
@@ -195,7 +195,8 @@ describe("clientService", () => {
       expect(db.payment.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: PayStatus.HELD }) })
       );
-      expect(res.payment.status).toBe(PayStatus.HELD);
+      expect(res.gatewayUrl).toBeNull(); // no gateway configured in tests -> held at once
+      expect(res.payment?.status).toBe(PayStatus.HELD);
       // the verdict is still returned for the UI to show, just not enforced
       expect(res.fairPrice.level).toBe("blocked");
     });
@@ -217,7 +218,8 @@ describe("clientService", () => {
       expect(db.payment.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: PayStatus.HELD }) })
       );
-      expect(res.payment.status).toBe(PayStatus.HELD);
+      expect(res.gatewayUrl).toBeNull(); // no gateway configured in tests -> held at once
+      expect(res.payment?.status).toBe(PayStatus.HELD);
     });
   });
 
