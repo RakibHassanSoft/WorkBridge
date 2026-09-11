@@ -177,7 +177,7 @@ describe("clientService", () => {
   });
 
   describe("depositEscrow", () => {
-    it("blocks funding an underpriced task", async () => {
+    it("funds even an 'underpriced' task — price is informational, never a block", async () => {
       db.task.findUnique.mockResolvedValue({
         id: "t1",
         fee: 1000,
@@ -188,9 +188,15 @@ describe("clientService", () => {
         trialCheck: { status: TrialCheckStatus.AWAITING_CLIENT },
       });
       ai.checkPrice.mockReturnValue({ level: "blocked", message: "too low" } as any);
-      await expect(
-        clientService.depositEscrow("me", "t1", {})
-      ).rejects.toMatchObject({ statusCode: 400 });
+      db.payment.update.mockResolvedValue({ status: PayStatus.HELD });
+
+      const res = await clientService.depositEscrow("me", "t1", {});
+      expect(db.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: PayStatus.HELD }) })
+      );
+      expect(res.payment.status).toBe(PayStatus.HELD);
+      // the verdict is still returned for the UI to show, just not enforced
+      expect(res.fairPrice.level).toBe("blocked");
     });
 
     it("moves the escrow to HELD on a fair price", async () => {

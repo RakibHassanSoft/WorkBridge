@@ -240,7 +240,10 @@ export const clientService = {
     return { ...check, trial, rebuilt: true };
   },
 
-  /** Fund the escrow. Blocked if the fee fails the fair-price floor. */
+  /**
+   * Fund the escrow. The AI's fair-price verdict is computed for information
+   * only and returned to the client — funding is NEVER blocked on price.
+   */
   async depositEscrow(
     clientId: string,
     taskId: string,
@@ -253,16 +256,12 @@ export const clientService = {
       throw AppError.conflict("This task's escrow is not awaiting a deposit");
     }
 
+    // Informational only: whatever the verdict, the deposit is allowed to proceed.
     const price = aiService.checkPrice(
       task.fee,
       task.hours,
       (task as { sectorId: string | null }).sectorId ?? "admin"
     );
-    if (price.level === "blocked") {
-      throw AppError.badRequest(
-        `Cannot fund an underpriced task. ${price.message}`
-      );
-    }
 
     let methodLabel = "Escrow deposit";
     if (input.paymentMethodId) {
