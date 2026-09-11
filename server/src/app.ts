@@ -5,11 +5,15 @@ import morgan from "morgan";
 import { env } from "@/config/env";
 import routes from "@/routes";
 import { errorHandler, notFoundHandler } from "@/middlewares/error.middleware";
+import { globalLimiter } from "@/middlewares/rateLimit.middleware";
 
 export function createApp(): Application {
   const app = express();
 
+  // Behind a proxy/load balancer in production (correct client IPs for rate limiting).
+  app.set("trust proxy", 1);
   app.use(helmet());
+  app.use(globalLimiter);
   app.use(
     cors({
       origin: env.corsOrigin === "*" ? true : env.corsOrigin.split(","),

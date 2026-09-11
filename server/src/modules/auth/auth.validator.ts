@@ -37,6 +37,8 @@ export const registerSchema = z.object({
     z.object({
       ...baseRegister,
       role: z.literal(Role.MODERATOR),
+      // A shared code gates moderator creation (see MODERATOR_SIGNUP_CODE).
+      moderatorCode: z.string().min(1, "A moderator code is required"),
     }),
   ]),
 });

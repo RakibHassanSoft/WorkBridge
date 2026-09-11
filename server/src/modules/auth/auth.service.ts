@@ -4,6 +4,7 @@ import { PublicUser } from "@/modules/user/user.model";
 import { hashPassword, comparePassword } from "@/utils/password";
 import { signToken } from "@/utils/jwt";
 import { AppError } from "@/utils/AppError";
+import { env } from "@/config/env";
 import type { RegisterInput, LoginInput } from "./auth.validator";
 
 export interface AuthResult {
@@ -13,6 +14,16 @@ export interface AuthResult {
 
 export const authService = {
   async register(input: RegisterInput): Promise<AuthResult> {
+    // Moderator accounts are privileged — gate them behind a server-side code.
+    if (input.role === Role.MODERATOR) {
+      if (!env.moderatorSignupCode) {
+        throw AppError.forbidden("Moderator registration is disabled");
+      }
+      if (input.moderatorCode !== env.moderatorSignupCode) {
+        throw AppError.forbidden("Invalid moderator code");
+      }
+    }
+
     const passwordHash = await hashPassword(input.password);
 
     const user = await userService.createWithProfile(

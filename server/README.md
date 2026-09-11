@@ -45,6 +45,27 @@ npm start         # run the compiled build
 
 Health check: `GET http://localhost:4000/api/v1/health`.
 
+## Demo data
+
+Populate the database with realistic demo data (clients, students, a
+moderator, jobs in every state, trials, payments, a dispute, KYC queue,
+support tickets) so every workspace looks full:
+
+```bash
+npm run seed        # wipes, then fills the database
+npm run db:reset    # deletes ALL data (one command)
+npm run db:reseed   # reset + seed
+```
+
+Demo logins — **3 clients, 2 moderators, 5 students** (password for all: `Passw0rd!`).
+Full list with notes is in **`DEMO_ACCOUNTS.md`**.
+
+| Role | Emails |
+| --- | --- |
+| Client (3) | `nokshi@demo.wb`, `chaap@demo.wb`, `shopno@demo.wb` |
+| Moderator (2) | `mod@demo.wb`, `mod2@demo.wb` |
+| Student (5) | `nusrat@demo.wb`, `tanvir@demo.wb`, `afsana@demo.wb` (verified); `mehedi@demo.wb`, `farzana@demo.wb` (pending) |
+
 ## Project layout
 
 ```
@@ -200,10 +221,44 @@ live → students apply by trial (AI scored) → moderator selects one (+1/0) �
 student delivers → moderator scores → client signs off (escrow released, point 0)
 → disputes/refunds where needed (−1 on failure).
 
+## Production
+
+Hardening already in place:
+
+- **Helmet** security headers, **CORS** locked to `CORS_ORIGIN` (set your real
+  frontend origin, not `*`), and `trust proxy` for correct client IPs behind a
+  load balancer.
+- **Rate limiting** — a global limiter plus a stricter limiter on `/auth`
+  (brute-force protection).
+- **Moderator lockdown** — `/auth/register` only creates `CLIENT`/`STUDENT`
+  accounts publicly; a `MODERATOR` requires `MODERATOR_SIGNUP_CODE`. Leave that
+  env var empty to disable moderator registration entirely once your
+  coordinators exist.
+- **Real migrations** — `prisma/migrations/` holds a versioned init migration;
+  deploy with `npx prisma migrate deploy` (no shadow DB, no schema drift).
+- **Dockerfile** — multi-stage build; the container runs `migrate deploy` then
+  starts the compiled server.
+
+Before going live:
+
+1. Set strong secrets in the environment (not `.env` in the image):
+   `JWT_SECRET`, `DATABASE_URL`, `MODERATOR_SIGNUP_CODE`, `GEMINI_API_KEY`, and
+   `CORS_ORIGIN=https://your-frontend`.
+2. **Rotate** the DB password, `JWT_SECRET`, and Gemini key that were shared in
+   plaintext during development.
+3. Run migrations: `npx prisma migrate deploy` (or let the Docker `CMD` do it).
+   If your DB was previously created with `db push`, baseline it first:
+   `npx prisma migrate resolve --applied 0001_init`.
+4. Serve over HTTPS (terminate TLS at your proxy/load balancer).
+
+```bash
+docker build -t workbridge-api ./server
+docker run -p 4000:4000 --env-file server/.env workbridge-api
+```
+
 ## Notes
 
-- `.env` holds the database URL and JWT secret and is git-ignored. Rotate the
-  `JWT_SECRET` (and ideally the DB password) before any real deployment.
-- The escrow rule (funds released only on client sign-off) and the fair-price
-  floor are enforced in services, not just the UI.
+- `.env` holds secrets and is git-ignored. The escrow rule (funds released only
+  on client sign-off), the fair-price floor, and verify-before-trial are all
+  enforced in the services, not just the UI.
 ```

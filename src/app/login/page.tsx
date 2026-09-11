@@ -9,10 +9,11 @@ import Logo from "@/components/Logo";
 
 type Mode = "login" | "register";
 
+// Public registration is client/student only. Coordinators are provisioned
+// server-side with a signup code, not created from the public form.
 const ROLES: { value: Role; label: string; hint: string }[] = [
   { value: "CLIENT", label: "Business", hint: "Post work and hire" },
   { value: "STUDENT", label: "Student", hint: "Do work, get verified" },
-  { value: "MODERATOR", label: "Coordinator", hint: "Review and moderate" },
 ];
 
 export default function LoginPage() {
@@ -96,7 +97,7 @@ export default function LoginPage() {
           </p>
 
           {mode === "register" && (
-            <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="mt-5 grid grid-cols-2 gap-2">
               {ROLES.map((r) => (
                 <button
                   key={r.value}

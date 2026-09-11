@@ -2,19 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Bell, ChevronDown, Menu, Search, X, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Bell, ChevronDown, LogOut, Menu, Search, X, type LucideIcon } from "lucide-react";
 import Logo from "@/components/Logo";
 import { Avatar, LangToggle } from "@/components/ui";
 import { T, useLang, type L } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 
 export type NavItem = { key: string; label: L; icon: LucideIcon; badge?: number };
-
-const ROLES = [
-  { href: "/app/client", label: { en: "Client", bn: "ক্লায়েন্ট" } },
-  { href: "/app/student", label: { en: "Student", bn: "শিক্ষার্থী" } },
-  { href: "/app/moderator", label: { en: "Moderator", bn: "মডারেটর" } },
-];
 
 export default function AppShell({
   role,
@@ -46,6 +42,8 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const { t } = useLang();
+  const { logout } = useAuth();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
 
@@ -87,21 +85,18 @@ export default function AppShell({
             {roleOpen && (
               <div className="anim-fade absolute inset-x-0 top-full z-10 mt-1.5 overflow-hidden rounded-[12px] border border-line bg-white p-1 shadow-[0_1px_2px_rgba(10,14,12,.05),0_18px_36px_-20px_rgba(10,14,12,.28)]">
                 <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                  <T v={{ en: "Switch workspace", bn: "ওয়ার্কস্পেস বদলান" }} />
+                  <T v={{ en: "Account", bn: "অ্যাকাউন্ট" }} />
                 </div>
-                {ROLES.map((r) => (
-                  <Link
-                    key={r.href}
-                    href={r.href}
-                    className={cn(
-                      "flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors",
-                      r.href === `/app/${role}` ? "bg-brand-50 text-brand-700" : "text-ink-2 hover:bg-canvas-2"
-                    )}
-                  >
-                    {t(r.label)}
-                    {r.href === `/app/${role}` && <span className="size-1.5 rounded-full bg-brand-500" />}
-                  </Link>
-                ))}
+                <button
+                  onClick={() => {
+                    logout();
+                    router.replace("/login");
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-ink-2 transition-colors hover:bg-canvas-2"
+                >
+                  <LogOut className="size-4 text-ink-4" />
+                  <T v={{ en: "Sign out", bn: "সাইন আউট" }} />
+                </button>
               </div>
             )}
           </div>
@@ -222,15 +217,6 @@ export default function AppShell({
           <div className="min-h-0 flex-1 bg-white">{children}</div>
         ) : (
           <div className="mx-auto max-w-[1180px] px-5 py-7 lg:px-8 lg:py-9">
-            <div className="mb-6 flex items-center gap-2.5 rounded-[12px] border border-brand-100 bg-brand-50/60 px-4 py-2.5 text-[12px] text-brand-900">
-              <span className="size-1.5 shrink-0 rounded-full bg-brand-500 anim-pulse-ring" />
-              <T
-                v={{
-                  en: "Interactive prototype — every project, person and number below is demonstration data.",
-                  bn: "ইন্টার‌্যাক্টিভ প্রোটোটাইপ — নিচের প্রতিটি প্রজেক্ট, ব্যক্তি ও সংখ্যা ডেমো ডেটা।",
-                }}
-              />
-            </div>
             {children}
           </div>
         )}

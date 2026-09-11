@@ -140,8 +140,8 @@ export default function SiteHeader() {
 
         <div className="flex items-center gap-2.5">
           <LangToggle className="w-[104px]" />
-          <Button href="/app/client" size="sm" className="hidden sm:inline-flex" icon={<ArrowRight className="size-3.5" />}>
-            <T v={{ en: "Open demo", bn: "ডেমো দেখুন" }} />
+          <Button href="/login" size="sm" className="hidden sm:inline-flex" icon={<ArrowRight className="size-3.5" />}>
+            <T v={{ en: "Sign in", bn: "সাইন ইন" }} />
           </Button>
           <button
             className="grid size-9 place-items-center rounded-[10px] border border-line text-ink lg:hidden"
@@ -181,8 +181,8 @@ export default function SiteHeader() {
               <ArrowRight className="size-4 text-ink-4" />
             </Link>
           ))}
-          <Button href="/app/client" size="lg" className="mt-7" full icon={<ArrowRight className="size-4" />}>
-            <T v={{ en: "Open the demo", bn: "ডেমো খুলুন" }} />
+          <Button href="/login" size="lg" className="mt-7" full icon={<ArrowRight className="size-4" />}>
+            <T v={{ en: "Sign in", bn: "সাইন ইন" }} />
           </Button>
         </div>
       </div>
