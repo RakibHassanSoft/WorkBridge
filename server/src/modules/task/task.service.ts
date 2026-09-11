@@ -28,6 +28,43 @@ export const taskService = {
     ]);
     return { ...task, status: TaskStatus.MATCHING };
   },
+
+  /**
+   * Public task board: every real task that has gone live (the client approved
+   * its trial), newest first, with the fields the /tasks page renders. No demo
+   * data — this is straight from the database. Drafts still waiting for the
+   * client's trial check are not shown; nothing is hidden once it is live.
+   */
+  listBoard() {
+    return prisma.task.findMany({
+      where: {
+        job: { status: { not: JobStatus.CANCELLED } },
+        trialCheck: { status: TrialCheckStatus.APPROVED },
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        sector: true,
+        trial: { select: { title: true, minutes: true, mirrors: true } },
+        job: {
+          select: {
+            ref: true,
+            title: true,
+            brief: true,
+            aiSummary: true,
+            createdAt: true,
+            client: {
+              select: {
+                id: true,
+                name: true,
+                clientProfile: { select: { businessName: true, city: true, industry: true } },
+              },
+            },
+          },
+        },
+        _count: { select: { attempts: true } },
+      },
+    });
+  },
 };
 
 export type TaskService = typeof taskService;

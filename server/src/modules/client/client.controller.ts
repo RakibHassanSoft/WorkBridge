@@ -49,6 +49,16 @@ export const clientController = {
     sendSuccess(res, 200, result.message, result);
   }),
 
+  updateTask: catchAsync(async (req: Request, res: Response) => {
+    const result = await clientService.updateTask(uid(req), req.params.taskId, req.body);
+    sendSuccess(res, 200, "Task updated", result);
+  }),
+
+  cancelTask: catchAsync(async (req: Request, res: Response) => {
+    const result = await clientService.cancelTask(uid(req), req.params.taskId);
+    sendSuccess(res, 200, "Task cancelled", result);
+  }),
+
   raiseDispute: catchAsync(async (req: Request, res: Response) => {
     const dispute = await clientService.raiseDispute(
       uid(req),

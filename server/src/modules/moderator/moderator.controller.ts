@@ -58,6 +58,16 @@ export const moderatorController = {
     sendSuccess(res, 200, "Escrow refunded", p);
   }),
 
+  // Modify / cancel a task
+  updateTask: catchAsync(async (req: Request, res: Response) => {
+    const t = await moderatorService.updateTask(req.params.taskId, req.body);
+    sendSuccess(res, 200, "Task updated", t);
+  }),
+  cancelTask: catchAsync(async (req: Request, res: Response) => {
+    const r = await moderatorService.cancelTask(req.params.taskId, req.body.reason);
+    sendSuccess(res, 200, "Task cancelled", r);
+  }),
+
   // Disputes
   listDisputes: catchAsync(async (req: Request, res: Response) => {
     const status = req.query.status as DisputeStatus | undefined;

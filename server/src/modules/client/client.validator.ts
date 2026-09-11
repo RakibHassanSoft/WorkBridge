@@ -52,6 +52,18 @@ export const signOffSchema = z.object({
   }),
 });
 
+export const updateTaskSchema = z.object({
+  params: taskIdParam,
+  body: z.object({
+    title: z.string().max(160).optional(),
+    brief: z.string().min(10, "Describe the problem in a sentence or two").max(20000).optional(),
+    budget: z.number().int().positive().optional(),
+    hours: z.number().int().positive().max(400).optional(),
+  }),
+});
+
+export const cancelTaskSchema = z.object({ params: taskIdParam });
+
 export const disputeSchema = z.object({
   params: taskIdParam,
   body: z.object({

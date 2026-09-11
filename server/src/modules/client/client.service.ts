@@ -284,6 +284,90 @@ export const clientService = {
     return { payment: updated, fairPrice: price };
   },
 
+  /**
+   * Modify a posted problem — only before a student is selected (task OPEN or
+   * MATCHING). The fee cannot change once the escrow is funded (HELD).
+   */
+  async updateTask(
+    clientId: string,
+    taskId: string,
+    input: { title?: string; brief?: string; budget?: number; hours?: number }
+  ) {
+    const task = await this.ownedTask(clientId, taskId, { job: true, payment: true });
+    const status = (task as { status: TaskStatus }).status;
+    if (status !== TaskStatus.OPEN && status !== TaskStatus.MATCHING) {
+      throw AppError.conflict("This task can only be edited before a student is selected");
+    }
+    const payment = (task as { payment: { status: PayStatus } | null }).payment;
+    const feeChanging = input.budget != null && input.budget !== task.fee;
+    if (feeChanging && payment?.status === PayStatus.HELD) {
+      throw AppError.conflict("The fee cannot change after the escrow is funded — refund it first, or cancel and repost");
+    }
+
+    const taskData: Prisma.TaskUpdateInput = {};
+    const jobData: Prisma.JobUpdateInput = {};
+    if (input.title?.trim()) {
+      taskData.title = input.title.trim();
+      jobData.title = input.title.trim();
+    }
+    if (input.brief?.trim()) jobData.brief = input.brief.trim();
+    if (input.hours != null) taskData.hours = input.hours;
+    if (feeChanging) {
+      taskData.fee = input.budget!;
+      jobData.budget = input.budget!;
+    }
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [];
+    if (Object.keys(taskData).length) ops.push(prisma.task.update({ where: { id: taskId }, data: taskData }));
+    if (Object.keys(jobData).length) ops.push(prisma.job.update({ where: { id: task.jobId }, data: jobData }));
+    if (feeChanging && payment?.status === PayStatus.AWAITING) {
+      ops.push(prisma.payment.update({ where: { taskId }, data: { amount: input.budget! } }));
+    }
+    if (!ops.length) throw AppError.badRequest("Nothing to update");
+
+    await prisma.$transaction(ops);
+    return this.getJob(clientId, task.jobId);
+  },
+
+  /**
+   * Cancel (soft-delete) a task the client owns. Sets the task and its job to
+   * CANCELLED and refunds any held escrow — history and attempts are preserved.
+   * Not allowed once a student is working on it (open a dispute instead) or
+   * after delivery.
+   */
+  async cancelTask(clientId: string, taskId: string) {
+    const task = await this.ownedTask(clientId, taskId, { job: true, payment: true });
+    const status = (task as { status: TaskStatus }).status;
+    if (status === TaskStatus.CANCELLED) throw AppError.conflict("This task is already cancelled");
+    if (status === TaskStatus.APPROVED) throw AppError.conflict("A delivered task cannot be cancelled");
+    if (
+      status === TaskStatus.IN_PROGRESS ||
+      status === TaskStatus.IN_REVIEW ||
+      status === TaskStatus.REVISION
+    ) {
+      throw AppError.conflict("A student is working on this task — open a dispute instead of cancelling");
+    }
+
+    const payment = (task as { payment: { status: PayStatus } | null }).payment;
+    const ops: Prisma.PrismaPromise<unknown>[] = [
+      prisma.task.update({ where: { id: taskId }, data: { status: TaskStatus.CANCELLED } }),
+      prisma.job.update({ where: { id: task.jobId }, data: { status: JobStatus.CANCELLED } }),
+    ];
+    if (payment) {
+      ops.push(
+        prisma.payment.update({
+          where: { taskId },
+          data: {
+            status: payment.status === PayStatus.HELD ? PayStatus.REFUNDED : PayStatus.FAILED,
+            note: "Task cancelled by the client",
+          },
+        })
+      );
+    }
+    await prisma.$transaction(ops);
+    return { cancelled: true };
+  },
+
   /** Accept the delivered work (release escrow) or ask for a revision (hold it). */
   async signOff(
     clientId: string,

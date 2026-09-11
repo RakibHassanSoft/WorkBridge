@@ -165,6 +165,9 @@ export function createApi(request: Transport) {
     me: () => get<AuthUser>("/users/me"),
     setAvatar: (avatarUrl: string) => patch<AuthUser>("/users/me/avatar", { avatarUrl }),
 
+    // public task board (no auth) — real tasks from the database
+    board: () => get<unknown[]>("/tasks"),
+
     // client
     client: {
       postJob: (body: { brief: string; title?: string; budget?: number; attachments?: Attachment[] }) =>
@@ -177,6 +180,9 @@ export function createApi(request: Transport) {
         post(`/client/tasks/${taskId}/deposit`, { paymentMethodId }),
       signOff: (taskId: string, decision: "accept" | "revision", note?: string) =>
         post(`/client/tasks/${taskId}/signoff`, { decision, note }),
+      updateTask: (taskId: string, body: { title?: string; brief?: string; budget?: number; hours?: number }) =>
+        patch(`/client/tasks/${taskId}`, body),
+      cancelTask: (taskId: string) => post(`/client/tasks/${taskId}/cancel`),
       dispute: (taskId: string, claim: string, amount: number, evidence?: string[]) =>
         post(`/client/tasks/${taskId}/dispute`, { claim, amount, evidence }),
       payments: () => get<unknown[]>("/client/payments"),
@@ -235,6 +241,10 @@ export function createApi(request: Transport) {
       payments: () => get<unknown[]>("/moderator/payments"),
       refund: (taskId: string, reason: string) =>
         post(`/moderator/tasks/${taskId}/refund`, { reason }),
+      updateTask: (taskId: string, body: { title?: string; desc?: string; fee?: number; hours?: number }) =>
+        patch(`/moderator/tasks/${taskId}`, body),
+      cancelTask: (taskId: string, reason: string) =>
+        post(`/moderator/tasks/${taskId}/cancel`, { reason }),
       disputes: (status?: string) =>
         get<unknown[]>(`/moderator/disputes${status ? `?status=${status}` : ""}`),
       ruleDispute: (id: string, outcome: "client" | "student" | "split", resolution: string) =>

@@ -14,6 +14,8 @@ import {
   replyTicketSchema,
   setActiveSchema,
   listUsersSchema,
+  updateTaskSchema,
+  cancelTaskSchema,
 } from "./moderator.validator";
 
 const router = Router();
@@ -40,6 +42,10 @@ router.post("/kyc/:id", validate(kycDecisionSchema), moderatorController.decideK
 // Payments
 router.get("/payments", moderatorController.listPayments);
 router.post("/tasks/:taskId/refund", validate(refundSchema), moderatorController.refund);
+
+// Modify / cancel a task
+router.patch("/tasks/:taskId", validate(updateTaskSchema), moderatorController.updateTask);
+router.post("/tasks/:taskId/cancel", validate(cancelTaskSchema), moderatorController.cancelTask);
 
 // Disputes
 router.get("/disputes", moderatorController.listDisputes);

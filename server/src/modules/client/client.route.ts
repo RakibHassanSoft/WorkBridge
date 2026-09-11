@@ -13,6 +13,8 @@ import {
   chatPostSchema,
   chatListSchema,
   paymentMethodSchema,
+  updateTaskSchema,
+  cancelTaskSchema,
 } from "./client.validator";
 
 const router = Router();
@@ -30,6 +32,8 @@ router.post("/tasks/:taskId/trial-check", validate(reviewTrialSchema), clientCon
 router.post("/tasks/:taskId/deposit", validate(depositSchema), clientController.deposit);
 router.post("/tasks/:taskId/signoff", validate(signOffSchema), clientController.signOff);
 router.post("/tasks/:taskId/dispute", validate(disputeSchema), clientController.raiseDispute);
+router.patch("/tasks/:taskId", validate(updateTaskSchema), clientController.updateTask);
+router.post("/tasks/:taskId/cancel", validate(cancelTaskSchema), clientController.cancelTask);
 
 // Chat
 router.get("/tasks/:taskId/messages", validate(chatListSchema), clientController.listMessages);

@@ -55,6 +55,21 @@ export const refundSchema = z.object({
   body: z.object({ reason: z.string().min(3) }),
 });
 
+export const updateTaskSchema = z.object({
+  params: taskIdParam,
+  body: z.object({
+    title: z.string().max(160).optional(),
+    desc: z.string().max(20000).optional(),
+    fee: z.number().int().positive().optional(),
+    hours: z.number().int().positive().max(400).optional(),
+  }),
+});
+
+export const cancelTaskSchema = z.object({
+  params: taskIdParam,
+  body: z.object({ reason: z.string().min(3) }),
+});
+
 export const ruleDisputeSchema = z.object({
   params: z.object({ id: z.string().min(1) }),
   body: z.object({

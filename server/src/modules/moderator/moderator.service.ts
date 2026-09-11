@@ -328,6 +328,69 @@ export const moderatorService = {
     return updated;
   },
 
+  // ── Modify / cancel a task (coordinator) ──
+
+  /** Correct a task's title, description, fee or hours. Fee is locked once funded. */
+  async updateTask(
+    taskId: string,
+    input: { title?: string; desc?: string; fee?: number; hours?: number }
+  ) {
+    const task = await prisma.task.findUnique({ where: { id: taskId }, include: { payment: true } });
+    if (!task) throw AppError.notFound("Task not found");
+    if (task.status === TaskStatus.CANCELLED || task.status === TaskStatus.APPROVED) {
+      throw AppError.conflict("This task can no longer be edited");
+    }
+    const feeChanging = input.fee != null && input.fee !== task.fee;
+    if (feeChanging && task.payment?.status === PayStatus.HELD) {
+      throw AppError.conflict("The fee cannot change after the escrow is funded");
+    }
+
+    const data: Prisma.TaskUpdateInput = {};
+    if (input.title?.trim()) data.title = input.title.trim();
+    if (input.desc?.trim()) data.desc = input.desc.trim();
+    if (input.hours != null) data.hours = input.hours;
+    if (feeChanging) data.fee = input.fee!;
+    if (!Object.keys(data).length) throw AppError.badRequest("Nothing to update");
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [prisma.task.update({ where: { id: taskId }, data })];
+    if (feeChanging) {
+      ops.push(
+        prisma.job.update({ where: { id: task.jobId }, data: { budget: input.fee!, aiSuggestedFee: input.fee! } })
+      );
+      if (task.payment?.status === PayStatus.AWAITING) {
+        ops.push(prisma.payment.update({ where: { taskId }, data: { amount: input.fee! } }));
+      }
+    }
+    await prisma.$transaction(ops);
+    return prisma.task.findUnique({ where: { id: taskId } });
+  },
+
+  /** Soft-cancel a task: set it and its job to CANCELLED, refund held escrow. */
+  async cancelTask(taskId: string, reason: string) {
+    const task = await prisma.task.findUnique({ where: { id: taskId }, include: { payment: true } });
+    if (!task) throw AppError.notFound("Task not found");
+    if (task.status === TaskStatus.CANCELLED) throw AppError.conflict("This task is already cancelled");
+    if (task.status === TaskStatus.APPROVED) throw AppError.conflict("A delivered task cannot be cancelled");
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [
+      prisma.task.update({ where: { id: taskId }, data: { status: TaskStatus.CANCELLED } }),
+      prisma.job.update({ where: { id: task.jobId }, data: { status: JobStatus.CANCELLED } }),
+    ];
+    if (task.payment) {
+      ops.push(
+        prisma.payment.update({
+          where: { taskId },
+          data: {
+            status: task.payment.status === PayStatus.HELD ? PayStatus.REFUNDED : PayStatus.FAILED,
+            note: `Cancelled by moderator: ${reason}`,
+          },
+        })
+      );
+    }
+    await prisma.$transaction(ops);
+    return { cancelled: true, reason };
+  },
+
   // ── Disputes ──
   listDisputes(status?: DisputeStatus) {
     return prisma.dispute.findMany({
