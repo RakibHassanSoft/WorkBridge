@@ -10,8 +10,8 @@ const QA = [
   {
     q: { en: "Is the AI making decisions about who gets work?", bn: "কে কাজ পাবে সেই সিদ্ধান্ত কি এআই নিচ্ছে?" },
     a: {
-      en: "No. The AI drafts a scope and produces an explained shortlist. A human coordinator approves, edits or rejects both before anything reaches a student or a client. Until enough real completed projects exist as calibration data, AI output is treated as a draft — that is a deliberate constraint, not a temporary limitation.",
-      bn: "না। এআই একটি স্কোপের খসড়া করে এবং ব্যাখ্যাসহ শর্টলিস্ট দেয়। কোনো শিক্ষার্থী বা ক্লায়েন্টের কাছে যাওয়ার আগে একজন human coordinator দুটোই অনুমোদন, সম্পাদনা বা বাতিল করেন। যথেষ্ট বাস্তব সম্পন্ন প্রজেক্ট ক্যালিব্রেশন ডেটা হিসেবে না জমা পর্যন্ত এআই-এর আউটপুট খসড়া হিসেবেই গণ্য — এটি ইচ্ছাকৃত সীমা, সাময়িক সীমাবদ্ধতা নয়।",
+      en: "No. The AI scopes the problem and builds a small trial of the same work, which the client approves. When students upload their trial work, the AI checks every requirement against their files and sends only those at 90%+ completion to a human coordinator, ranked with its reasons. The coordinator — not the AI — decides who gets the work.",
+      bn: "না। এআই সমস্যাটির পরিধি ঠিক করে এবং একই কাজের একটি ছোট ট্রায়াল বানায়, যা ক্লায়েন্ট অনুমোদন করেন। শিক্ষার্থীরা ট্রায়ালের কাজ আপলোড করলে এআই প্রতিটি শর্ত তাদের ফাইলের সাথে মিলিয়ে দেখে এবং শুধু ৯০%+ সম্পূর্ণদের কারণসহ র‍্যাংক করে একজন কোঅর্ডিনেটরের কাছে পাঠায়। কে কাজ পাবে তা এআই নয়, কোঅর্ডিনেটর ঠিক করেন।",
     },
   },
   {

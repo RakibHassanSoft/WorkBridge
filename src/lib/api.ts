@@ -17,12 +17,35 @@ const USER_KEY = "wb.user";
 
 export type Role = "CLIENT" | "STUDENT" | "MODERATOR";
 
+/**
+ * An uploaded deliverable: metadata plus extracted text, plus base64 for
+ * images / scanned PDFs so the AI judge can see them (never stored).
+ * A folder upload becomes one Attachment whose `files` are its members; a single
+ * file becomes an Attachment with one file. The same shape is understood by the
+ * real API and the in-browser demo backend.
+ */
+export interface UploadedFile {
+  name: string; // file name, or relative path within a folder
+  mime: string;
+  size: number; // bytes
+  content: string | null; // extracted text for text-like files; null for binary
+  // base64 of an image / scanned PDF so the AI judge can look at it. Sent with
+  // the upload, used for the evaluation, never stored.
+  data?: string | null;
+}
+export interface Attachment {
+  kind: "file" | "folder";
+  name: string;
+  files: UploadedFile[];
+}
+
 export interface AuthUser {
   id: string;
   email: string;
   role: Role;
   name: string;
   phone?: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface ApiEnvelope<T> {
@@ -140,10 +163,11 @@ export function createApi(request: Transport) {
     login: (email: string, password: string) =>
       post<{ user: AuthUser; token: string }>("/auth/login", { email, password }),
     me: () => get<AuthUser>("/users/me"),
+    setAvatar: (avatarUrl: string) => patch<AuthUser>("/users/me/avatar", { avatarUrl }),
 
     // client
     client: {
-      postJob: (body: { brief: string; title?: string; budget?: number }) =>
+      postJob: (body: { brief: string; title?: string; budget?: number; attachments?: Attachment[] }) =>
         post<{ job: unknown; price: unknown }>("/client/jobs", body),
       listJobs: () => get<unknown[]>("/client/jobs"),
       getJob: (id: string) => get<unknown>(`/client/jobs/${id}`),
@@ -174,15 +198,15 @@ export function createApi(request: Transport) {
       browse: (sectorId?: string) =>
         get<unknown[]>(`/student/tasks${sectorId ? `?sectorId=${sectorId}` : ""}`),
       taskDetail: (taskId: string) => get<unknown>(`/student/tasks/${taskId}`),
-      apply: (taskId: string, summary: string, minutesTaken: number) =>
-        post(`/student/tasks/${taskId}/apply`, { summary, minutesTaken }),
+      apply: (taskId: string, summary: string, minutesTaken: number, attachments?: Attachment[]) =>
+        post(`/student/tasks/${taskId}/apply`, { summary, minutesTaken, attachments }),
       trials: () => get<unknown[]>("/student/trials"),
       points: () => get<{ total: number; entries: unknown[] }>("/student/points"),
       active: () => get<unknown[]>("/student/active"),
       progress: (taskId: string, progress: number) =>
         post(`/student/tasks/${taskId}/progress`, { progress }),
-      submit: (taskId: string, note: string) =>
-        post(`/student/tasks/${taskId}/submit`, { note }),
+      submit: (taskId: string, note: string, files?: Attachment[]) =>
+        post(`/student/tasks/${taskId}/submit`, { note, files }),
       record: () => get<unknown[]>("/student/record"),
       earnings: () => get<{ total: number; payments: unknown[] }>("/student/earnings"),
       dispute: (taskId: string, claim: string, amount: number, evidence?: string[]) =>

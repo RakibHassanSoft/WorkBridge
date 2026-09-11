@@ -14,12 +14,16 @@ import { aiService } from "@/modules/ai/ai.service";
 import { taskService } from "@/modules/task/task.service";
 import { genRef } from "@/utils/ref";
 import { toTaskLevel, jobDetailInclude } from "./client.model";
+import { Attachment, summarizeAttachments, stripBinary } from "@/modules/ai/attachments";
 
 /**
  * Client service — everything the client role does, with the flow rules
  * enforced here (not just in the UI):
- *   post brief -> AI scope + trial -> (client checks trial) + (deposit escrow)
- *   -> task goes live -> ... -> client signs off -> escrow releases.
+ *   post brief -> stored at once, no approval step -> AI builds the task and a
+ *   small same-feature trial -> client approves the trial (or asks for changes,
+ *   and the AI rebuilds it) -> task goes live on the board -> students do the
+ *   trial, the AI judges their files and shortlists 90%+ -> moderator selects
+ *   (escrow must be funded by then) -> ... -> client signs off -> escrow releases.
  * Escrow is released ONLY on an accept sign-off; a revision keeps it held.
  */
 export const clientService = {
@@ -45,9 +49,15 @@ export const clientService = {
   /** Post a problem: run the AI scope, persist job + task + trial + trial-check + (unfunded) payment. */
   async postJob(
     clientId: string,
-    input: { brief: string; budget?: number; title?: string }
+    input: { brief: string; budget?: number; title?: string; attachments?: Attachment[] }
   ) {
-    const scope = await aiService.scope(input.brief, { budget: input.budget });
+    // If the client attached documents, feed their text to the AI so the scope
+    // reflects what is in the files (the AI organises here; it does not price-gate).
+    const files = summarizeAttachments(input.attachments);
+    const briefForScope = files.text
+      ? `${input.brief}\n\n--- Attached documents ---\n${files.text}`
+      : input.brief;
+    const scope = await aiService.scope(briefForScope, { budget: input.budget });
     const postedFee =
       input.budget && input.budget > 0 ? input.budget : scope.suggestedFee;
 
@@ -59,7 +69,10 @@ export const clientService = {
         brief: input.brief,
         sector: { connect: { id: scope.sectorId } },
         budget: postedFee,
+        // Stored immediately — no moderator approval step. SCOPING now means
+        // "the AI's trial is waiting for the client's check".
         status: JobStatus.SCOPING,
+        scopeApproved: true,
         aiSummary: scope.summary,
         aiComplexity: scope.complexity,
         aiConfidence: scope.confidence,
@@ -67,6 +80,9 @@ export const clientService = {
         aiSuggestedFee: scope.suggestedFee,
         aiRisks: scope.risks,
         aiSkills: scope.skills,
+        attachments: input.attachments
+          ? (stripBinary(input.attachments) as unknown as Prisma.InputJsonValue)
+          : undefined,
         tasks: {
           create: {
             title: scope.title,
@@ -106,14 +122,15 @@ export const clientService = {
     return { job, price: scope.price };
   },
 
-  listJobs(clientId: string) {
+  async listJobs(clientId: string) {
     // Same detail as a single job: the workspace needs each task's trial (to
     // check it) and its evaluation (to sign off), not just payment + check.
-    return prisma.job.findMany({
+    const jobs = await prisma.job.findMany({
       where: { clientId },
       orderBy: { createdAt: "desc" },
       include: jobDetailInclude,
     });
+    return this.withTrialStats(jobs);
   },
 
   async getJob(clientId: string, jobId: string) {
@@ -125,37 +142,102 @@ export const clientService = {
     if (job.clientId !== clientId) {
       throw AppError.forbidden("This job belongs to another client");
     }
-    return job;
+    return (await this.withTrialStats([job]))[0];
   },
 
-  /** The client's trial check: the AI-built trial must mirror their real work. */
+  /**
+   * Add `trialStats` to every task: how many students did the trial and how
+   * many the AI shortlisted (90%+). Counts only — who they are stays with the
+   * moderator until one is selected.
+   */
+  async withTrialStats<J extends { tasks: { id: string }[] }>(jobs: J[]) {
+    const ids = jobs.flatMap((j) => j.tasks.map((t) => t.id));
+    const rows = ids.length
+      ? await prisma.trialAttempt.groupBy({ by: ["taskId", "outcome"], where: { taskId: { in: ids } }, _count: { _all: true } })
+      : [];
+    const stats = new Map<string, { applicants: number; shortlisted: number }>();
+    for (const r of rows as unknown as { taskId: string; outcome: TrialOutcome; _count: { _all: number } }[]) {
+      const s = stats.get(r.taskId) ?? { applicants: 0, shortlisted: 0 };
+      s.applicants += r._count._all;
+      if (r.outcome === TrialOutcome.SHORTLISTED || r.outcome === TrialOutcome.SELECTED) s.shortlisted += r._count._all;
+      stats.set(r.taskId, s);
+    }
+    return jobs.map((j) => ({
+      ...j,
+      tasks: j.tasks.map((t) => ({ ...t, trialStats: stats.get(t.id) ?? { applicants: 0, shortlisted: 0 } })),
+    }));
+  },
+
+  /**
+   * The client's trial check. Approve -> the task goes live on the board.
+   * Ask for changes -> the AI rebuilds the trial with the note as a new
+   * requirement and hands it back for another check.
+   */
   async reviewTrial(
     clientId: string,
     taskId: string,
     input: { decision: "approve" | "changes"; note?: string }
   ) {
-    const task = await this.ownedTask(clientId, taskId);
-    const check = (task as { trialCheck: { status: TrialCheckStatus } | null })
-      .trialCheck;
-    if (!check) throw AppError.notFound("No trial check for this task");
-    if (check.status === TrialCheckStatus.APPROVED) {
+    const task = await this.ownedTask(clientId, taskId, { job: true, trial: true, trialCheck: true, sector: true });
+    const t = task as unknown as {
+      status: TaskStatus;
+      hours: number;
+      sectorId: string | null;
+      job: { brief: string; attachments: unknown };
+      sector: { name: string } | null;
+      trial: { title: string; brief: string; acceptance: string[]; revision: number } | null;
+      trialCheck: { status: TrialCheckStatus } | null;
+    };
+    if (!t.trialCheck) throw AppError.notFound("No trial check for this task");
+    if (t.trialCheck.status === TrialCheckStatus.APPROVED) {
       throw AppError.conflict("The trial has already been approved");
     }
+    if (t.status === TaskStatus.CANCELLED) throw AppError.conflict("This task was cancelled");
 
     if (input.decision === "approve") {
       const updated = await prisma.trialCheck.update({
         where: { taskId },
         data: { status: TrialCheckStatus.APPROVED, decidedAt: new Date() },
       });
-      // May now be live if the moderator has released the scope and it's funded.
+      // The client's approval is the only gate: the task is now live on the board.
       await taskService.maybeActivate(taskId);
-      return updated;
+      return { ...updated, live: true };
     }
 
-    return prisma.trialCheck.update({
-      where: { taskId },
-      data: { status: TrialCheckStatus.CHANGES_ASKED, clientNote: input.note },
+    const note = (input.note ?? "").trim();
+    if (note.length < 3) throw AppError.badRequest("Say what the trial should test instead");
+    if (!t.trial) throw AppError.notFound("This task has no trial");
+
+    const docs = summarizeAttachments(t.job.attachments as Attachment[] | null);
+    const rebuilt = await aiService.rebuildTrial({
+      brief: docs.text ? `${t.job.brief}\n\n--- Attached documents ---\n${docs.text}` : t.job.brief,
+      sectorId: t.sectorId ?? "admin",
+      sectorName: t.sector?.name,
+      hours: t.hours,
+      current: { title: t.trial.title, brief: t.trial.brief, requirements: t.trial.acceptance },
+      note,
     });
+
+    const [trial, check] = await prisma.$transaction([
+      prisma.trial.update({
+        where: { taskId },
+        data: {
+          title: rebuilt.title,
+          brief: rebuilt.brief,
+          minutes: rebuilt.minutes,
+          mirrors: rebuilt.mirrors,
+          acceptance: rebuilt.acceptance,
+          aiNote: `Rebuilt from the client's note: ${note}`,
+          revision: { increment: 1 },
+        },
+      }),
+      // Back to the client for another look — the new trial needs their approval.
+      prisma.trialCheck.update({
+        where: { taskId },
+        data: { status: TrialCheckStatus.AWAITING_CLIENT, clientNote: note, decidedAt: new Date() },
+      }),
+    ]);
+    return { ...check, trial, rebuilt: true };
   },
 
   /** Fund the escrow. Blocked if the fee fails the fair-price floor. */
@@ -199,9 +281,6 @@ export const clientService = {
         note: "Held in escrow until sign-off",
       },
     });
-
-    // May now be live if the moderator has released the scope and the trial is approved.
-    await taskService.maybeActivate(taskId);
 
     return { payment: updated, fairPrice: price };
   },

@@ -170,8 +170,8 @@ export default function HeroPreview() {
                 <p className="text-[12.5px] leading-relaxed text-brand-900">
                   <T
                     v={{
-                      en: "Held for human review. A coordinator approves or edits this breakdown before any student sees it.",
-                      bn: "মানুষের রিভিউয়ের জন্য অপেক্ষমাণ। কোনো শিক্ষার্থী দেখার আগে একজন কোঅর্ডিনেটর এই ভাগটি অনুমোদন বা সম্পাদনা করেন।",
+                      en: "Saved. Approve the AI's trial and the task goes live — the AI checks every applicant's files and sends 90%+ work to a coordinator.",
+                      bn: "সংরক্ষিত। এআই-এর ট্রায়াল অনুমোদন করলেই টাস্ক লাইভ — এআই প্রতিটি আবেদনকারীর ফাইল যাচাই করে ৯০%+ কাজ কোঅর্ডিনেটরের কাছে পাঠায়।",
                     }}
                   />
                 </p>

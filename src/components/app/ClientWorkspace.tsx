@@ -22,10 +22,13 @@ import {
 } from "lucide-react";
 import AppShell, { type NavItem } from "./AppShell";
 import TaskChat from "./TaskChat";
+import ProfilePhotoCard from "./ProfilePhoto";
+import SectorIcon from "@/components/SectorIcon";
+import { sectorById } from "@/data/sectors";
 import SupportPanel from "./SupportPanel";
-import { EmptyState, Fact, LoadingRows, Notice, Panel, StatCard, StatusBadge, WelcomeBanner, inputCls, taka, useAction, when } from "./parts";
+import { AttachmentList, AttachmentPicker, EmptyState, Fact, LoadingRows, Notice, Panel, StatCard, StatusBadge, WelcomeBanner, inputCls, taka, useAction, when } from "./parts";
 import { Bar, Button } from "@/components/ui";
-import { ApiError } from "@/lib/api";
+import { ApiError, type Attachment } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { L } from "@/lib/i18n";
 import { useApi, useWorkspaceUser } from "@/lib/workspace";
@@ -46,9 +49,11 @@ type Task = {
   skills?: string[];
   acceptance: string[];
   submissionNote?: string | null;
+  submissionFiles?: Attachment[] | null;
   payment?: Payment | null;
   trialCheck?: { status: string; clientNote?: string | null } | null;
-  trial?: { title: string; brief: string; minutes: number; mirrors?: string | null; acceptance?: string[] } | null;
+  trial?: { title: string; brief: string; minutes: number; mirrors?: string | null; acceptance?: string[]; revision?: number } | null;
+  trialStats?: { applicants: number; shortlisted: number } | null;
   evaluation?: Evaluation | null;
   assignee?: { id: string; name: string } | null;
 };
@@ -68,6 +73,7 @@ type Job = {
   aiRisks?: string[];
   aiSkills?: string[];
   sector?: { id: string; name: string } | null;
+  attachments?: Attachment[] | null;
   tasks: Task[];
 };
 type PriceVerdict = { level: "ok" | "low" | "blocked"; message: string; rate?: number; floor?: number };
@@ -88,7 +94,7 @@ const TITLES: Record<string, { title: L; subtitle: L }> = {
   overview: { title: L("Overview", "ওভারভিউ"), subtitle: L("Everything that needs you, and nothing that doesn't") },
   post: { title: L("Post a problem", "সমস্যা পোস্ট করুন"), subtitle: L("Write it in your own words. One problem, one price.") },
   jobs: { title: L("My problems", "আমার সমস্যা"), subtitle: L("Each problem, its AI scope, and where it stands") },
-  review: { title: L("Needs your action", "আপনার করণীয়"), subtitle: L("Check trials, fund escrow and sign off finished work") },
+  review: { title: L("Needs your action", "আপনার করণীয়"), subtitle: L("Approve the AI's trials, fund escrow and sign off finished work") },
   spend: { title: L("Spend", "খরচ"), subtitle: L("Held in escrow until you sign off") },
   account: { title: L("Payment methods", "পেমেন্ট পদ্ধতি"), subtitle: L("How you fund escrow") },
   help: { title: L("Help & support", "সহায়তা"), subtitle: L("Ask a coordinator anything") },
@@ -97,11 +103,14 @@ const TITLES: Record<string, { title: L; subtitle: L }> = {
 /** What, if anything, the client has to do on this task right now. */
 function actionFor(t?: Task) {
   if (!t) return null;
+  if (t.status === "CANCELLED") return null;
   if (t.trialCheck?.status === "AWAITING_CLIENT" || t.trialCheck?.status === "CHANGES_ASKED") return "trial";
   if (t.payment?.status === "AWAITING") return "fund";
   if (t.status === "IN_REVIEW" && t.evaluation && !t.evaluation.clientSignoff) return "signoff";
   return null;
 }
+
+const ACTION_LABEL: Record<string, string> = { trial: "Check the trial", fund: "Fund escrow", signoff: "Sign off the work" };
 
 export default function ClientWorkspace() {
   const api = useApi();
@@ -178,7 +187,12 @@ export default function ClientWorkspace() {
             )
           )}
           {tab === "spend" && <Spend payments={payments} />}
-          {tab === "account" && <Methods methods={methods} onChange={reload} />}
+          {tab === "account" && (
+            <div className="space-y-4">
+              <ProfilePhotoCard name={user?.name ?? "You"} currentUrl={user?.avatarUrl} />
+              <Methods methods={methods} onChange={reload} />
+            </div>
+          )}
           {tab === "help" && <SupportPanel />}
         </>
       )}
@@ -208,7 +222,7 @@ function Overview({ name, jobs, payments, todo, go }: { name: string; jobs: Job[
           </>
         }
       >
-        Describe a problem in plain words — the AI prices it and writes a short trial, a coordinator checks it, and your money is only released when you sign off.
+        Describe a problem in plain words — it is saved at once. The AI prices it and builds a small trial of the same work; approve the trial and it goes live. The AI checks every student&apos;s files and only 90%+ work reaches a coordinator. Your money is released only when you sign off.
       </WelcomeBanner>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -270,12 +284,13 @@ function PostProblem({ onPosted }: { onPosted: () => void }) {
   const [brief, setBrief] = useState("");
   const [title, setTitle] = useState("");
   const [budget, setBudget] = useState("");
+  const [files, setFiles] = useState<Attachment[]>([]);
   const [result, setResult] = useState<{ job: Job; price: PriceVerdict } | null>(null);
   const { busy, err, run } = useAction();
 
   const submit = () =>
     run(async () => {
-      const res = (await api.client.postJob({ brief: brief.trim(), title: title.trim() || undefined, budget: budget ? Number(budget) : undefined })) as {
+      const res = (await api.client.postJob({ brief: brief.trim(), title: title.trim() || undefined, budget: budget ? Number(budget) : undefined, attachments: files.length ? files : undefined })) as {
         job: Job;
         price: PriceVerdict;
       };
@@ -288,9 +303,9 @@ function PostProblem({ onPosted }: { onPosted: () => void }) {
     return (
       <div className="space-y-5">
         <Notice tone="success" className="flex items-center gap-2">
-          <CheckCircle2 className="size-4 shrink-0" /> Posted as {result.job.ref}. A coordinator reviews the scope before anyone sees it.
+          <CheckCircle2 className="size-4 shrink-0" /> Saved as {result.job.ref} — no approval needed. Check the AI&apos;s trial below; approving it puts your task live on the board.
         </Notice>
-        <Panel title={L("The AI's scope")} desc={L("One task, one price — check it before you fund")} action={<StatusBadge status={result.job.status} />}>
+        <Panel title={L("The AI's scope")} desc={L("Your brief, organised into one task and a small trial of the same work")} action={<StatusBadge status={result.job.status} />}>
           <div className="space-y-4 p-5">
             <div className="rounded-[14px] border border-brand-100 bg-brand-50/50 p-4">
               <p className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-brand-700">
@@ -305,10 +320,12 @@ function PostProblem({ onPosted }: { onPosted: () => void }) {
               <Fact label="Complexity" value={result.job.aiComplexity ?? "—"} />
               <Fact label="Sector" value={<span className="text-[13px]">{result.job.sector?.name ?? "—"}</span>} />
             </div>
-            <Notice tone={price?.level === "ok" ? "success" : price?.level === "blocked" ? "error" : "warn"}>
-              <span className="font-semibold">Fair-price check: </span>
-              {price?.message}
-            </Notice>
+            {!!result.job.attachments?.length && (
+              <div>
+                <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">Documents you attached (read by the AI)</p>
+                <div className="mt-2"><AttachmentList attachments={result.job.attachments} /></div>
+              </div>
+            )}
             {!!result.job.aiRisks?.length && (
               <div>
                 <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">Risks the AI could not resolve</p>
@@ -325,7 +342,7 @@ function PostProblem({ onPosted }: { onPosted: () => void }) {
           </div>
         </Panel>
         <div className="flex flex-wrap gap-3">
-          <Button onClick={onPosted}>Check the trial &amp; fund</Button>
+          <Button onClick={onPosted}>Check the trial</Button>
           <Button variant="ghost" onClick={() => { setResult(null); setBrief(""); setTitle(""); setBudget(""); }}>Post another</Button>
         </div>
       </div>
@@ -334,7 +351,7 @@ function PostProblem({ onPosted }: { onPosted: () => void }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-      <Panel title={L("Describe the problem")} desc={L("Plain words, Bangla or English. The AI prices it and writes a trial.")}>
+      <Panel title={L("Describe the problem")} desc={L("Plain words, Bangla or English. Attach any brief, spec or document — the AI reads it, organises it into one task and writes a trial.")}>
         <div className="space-y-4 p-5">
           <label className="block">
             <span className="mb-1.5 flex justify-between text-[12.5px] font-medium text-ink-2">
@@ -358,8 +375,12 @@ function PostProblem({ onPosted }: { onPosted: () => void }) {
               <input inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))} placeholder="Leave blank for the AI's price" className={inputCls} />
             </label>
           </div>
+          <div>
+            <span className="mb-1.5 block text-[12.5px] font-medium text-ink-2">Attach documents <span className="font-normal text-ink-4">(optional — PDF, Word, spreadsheets, notes)</span></span>
+            <AttachmentPicker value={files} onChange={setFiles} />
+          </div>
           <Button onClick={submit} disabled={busy || brief.trim().length < 10} icon={<Cpu className="size-4" />}>
-            {busy ? "Scoping…" : "Scope it with AI"}
+            {busy ? "Organising…" : "Organise it with AI"}
           </Button>
           {err && <Notice tone="error">{err}</Notice>}
         </div>
@@ -367,10 +388,10 @@ function PostProblem({ onPosted }: { onPosted: () => void }) {
       <div className="space-y-3 rounded-[16px] border border-line bg-white p-5">
         <p className="text-[13px] font-semibold text-ink">What happens next</p>
         {[
-          ["The AI scopes it", "One task, a fixed fee, hours, acceptance criteria and a short trial."],
-          ["A coordinator checks the scope", "Nothing reaches a student until a person releases it."],
-          ["You check the trial and fund escrow", "The money is held — not paid — until you sign off."],
-          ["Students do the trial; the best is selected", "You chat with them directly while they work."],
+          ["It is saved at once", "No approval step — the AI scopes it into one task with a fixed fee and hours."],
+          ["The AI builds a small trial", "The same features as your task at a fraction of the size. Approve it, or ask for changes and the AI rebuilds it."],
+          ["Students do the trial; the AI checks their files", "Every requirement is checked. Only students at 90%+ completion are sent to a coordinator."],
+          ["Fund escrow; a coordinator picks the student", "The money is held — not paid — and you chat with the student directly."],
           ["You sign off", "Only then is the student paid."],
         ].map(([h, d], i) => (
           <div key={h} className="flex gap-3">
@@ -388,12 +409,26 @@ function PostProblem({ onPosted }: { onPosted: () => void }) {
 
 function TrialBox({ trial }: { trial: NonNullable<Task["trial"]> }) {
   return (
-    <div className="rounded-[14px] border border-line p-4">
-      <p className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">
+    <div className="rounded-[14px] border border-line bg-white p-4">
+      <p className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">
         <Timer className="size-3.5" /> The trial applicants will do · {trial.minutes} min
+        {(trial.revision ?? 1) > 1 && <span className="rounded-full bg-brand-50 px-2 py-0.5 normal-case tracking-normal text-brand-700">Rebuilt · v{trial.revision}</span>}
       </p>
       <p className="mt-1.5 text-[13.5px] font-medium text-ink">{trial.title}</p>
       <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{trial.brief}</p>
+      {!!trial.acceptance?.length && (
+        <div className="mt-3">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">What the AI checks in each student&apos;s files</p>
+          <ol className="mt-1.5 space-y-1">
+            {trial.acceptance.map((a, i) => (
+              <li key={a} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-2">
+                <span className="num mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-canvas-3 text-[10px] font-semibold text-ink-3">{i + 1}</span> {a}
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 text-[11.5px] text-ink-4">A student needs 90% of these done to be sent to a coordinator.</p>
+        </div>
+      )}
       {trial.mirrors && <p className="mt-2 text-[12px] leading-relaxed text-ink-4"><span className="font-medium text-ink-3">Why this trial: </span>{trial.mirrors}</p>}
     </div>
   );
@@ -413,11 +448,11 @@ function JobList({ jobs, methods, onChange, onPost }: { jobs: Job[]; methods: Me
   );
 }
 
-const STEPS = ["Scope released", "Trial approved", "Escrow funded", "Student selected", "Work delivered", "Signed off"];
-function progressSteps(job: Job, t: Task) {
+const STEPS = ["Trial approved", "Students shortlisted", "Escrow funded", "Student selected", "Work delivered", "Signed off"];
+function progressSteps(_job: Job, t: Task) {
   return [
-    !!job.scopeApproved,
     t.trialCheck?.status === "APPROVED",
+    (t.trialStats?.shortlisted ?? 0) > 0 || !!t.assignee,
     ["HELD", "RELEASED"].includes(t.payment?.status ?? ""),
     !!t.assignee,
     ["IN_REVIEW", "APPROVED"].includes(t.status) || !!t.submissionNote,
@@ -439,6 +474,9 @@ function JobCard({ job, methods, onChange, defaultOpen = false }: { job: Job; me
   const pay = task.payment?.status;
   const act = actionFor(task);
   const steps = progressSteps(job, task);
+  const doneCount = steps.filter(Boolean).length;
+  const nextIdx = steps.findIndex((x) => !x);
+  const sec = job.sector?.id ? sectorById(job.sector.id) : undefined;
   const cancelled = task.status === "CANCELLED" || job.status === "CANCELLED";
   // Actions that needed a written note close their form once they succeed.
   const followUp = async (fn: () => Promise<unknown>) => {
@@ -450,26 +488,61 @@ function JobCard({ job, methods, onChange, defaultOpen = false }: { job: Job; me
 
   return (
     <section className={cn("overflow-hidden rounded-[16px] border bg-white transition-shadow", act ? "border-brand-200 shadow-[0_0_0_3px_rgba(26,155,102,.06)]" : "border-line")}>
-      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left">
-        <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-ink">{job.title}</h2>
-          <p className="mt-0.5 text-[12px] text-ink-4">{job.ref} · {job.sector?.name ?? "—"} · {taka(task.fee)} · posted {when(job.createdAt)}</p>
+      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center gap-4 px-5 py-4 text-left">
+        <span
+          className="grid size-11 shrink-0 place-items-center rounded-[13px] text-white shadow-sm"
+          style={{ background: sec?.accent ?? "#0f7f52" }}
+          aria-hidden
+        >
+          {sec ? <SectorIcon name={sec.icon} className="size-5" /> : <Briefcase className="size-5" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h2 className="truncate text-[15.5px] font-semibold tracking-[-0.015em] text-ink">{job.title}</h2>
+            {act && !cancelled && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-600 px-2 py-0.5 text-[10.5px] font-semibold text-white">
+                {ACTION_LABEL[act]}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[12px] text-ink-4">
+            <span className="num">{job.ref}</span>
+            <span>·</span>
+            <span>{job.sector?.name ?? "—"}</span>
+            <span>·</span>
+            <span className="num font-medium text-ink-3">{taka(task.fee)}</span>
+            <span className="hidden sm:inline">·</span>
+            <span className="hidden sm:inline">posted {when(job.createdAt)}</span>
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {pay && pay !== "RELEASED" && <StatusBadge status={pay} />}
+        <div className="flex shrink-0 items-center gap-2">
+          {pay && pay !== "RELEASED" && <StatusBadge status={pay} className="hidden sm:inline-flex" />}
           <StatusBadge status={task.status === "OPEN" ? job.status : task.status} />
           <ChevronDown className={cn("size-4 text-ink-4 transition-transform", open && "rotate-180")} />
         </div>
       </button>
 
       {!cancelled && (
-        <div className="grid grid-cols-6 gap-1 px-5 pb-4">
-          {STEPS.map((s, i) => (
-            <div key={s} title={s}>
-              <div className={cn("h-1.5 rounded-full", steps[i] ? "bg-brand-500" : "bg-canvas-3")} />
-              <p className={cn("mt-1.5 hidden text-[10.5px] leading-tight md:block", steps[i] ? "text-ink-3" : "text-ink-4")}>{s}</p>
-            </div>
-          ))}
+        <div className="px-5 pb-4">
+          <div className="flex items-center gap-1">
+            {STEPS.map((s, i) => (
+              <span
+                key={s}
+                title={s}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full transition-colors",
+                  steps[i] ? "bg-brand-500" : i === nextIdx ? "bg-brand-200" : "bg-canvas-3"
+                )}
+              />
+            ))}
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="text-[11px] text-ink-4">
+              <span className="num font-semibold text-ink-3">{doneCount}/{STEPS.length}</span> ·{" "}
+              {nextIdx === -1 ? "Signed off & paid" : `Next: ${STEPS[nextIdx]}`}
+            </p>
+            {task.assignee && <p className="truncate text-[11px] text-ink-4">{task.assignee.name}</p>}
+          </div>
         </div>
       )}
 
@@ -500,35 +573,48 @@ function JobCard({ job, methods, onChange, defaultOpen = false }: { job: Job; me
             </div>
 
             <div className="space-y-4">
-              {!job.scopeApproved && !cancelled && <Notice tone="info">A coordinator is reviewing the AI&apos;s scope. You can check the trial and fund escrow in the meantime.</Notice>}
-
-              {/* 1. trial check */}
-              {task.trial && (tc === "AWAITING_CLIENT" || tc === "CHANGES_ASKED") && (
+              {/* 1. trial check — approving puts the task live; changes make the AI rebuild it */}
+              {task.trial && (tc === "AWAITING_CLIENT" || tc === "CHANGES_ASKED") && !cancelled && (
                 <div className="space-y-3 rounded-[14px] border border-warn/25 bg-warn-bg/40 p-4">
+                  <p className="text-[13px] font-medium text-ink">Check the AI&apos;s trial — does it test the same work as your task?</p>
                   <TrialBox trial={task.trial} />
-                  {tc === "CHANGES_ASKED" && <Notice tone="warn">You asked for changes{task.trialCheck?.clientNote ? `: “${task.trialCheck.clientNote}”` : "."} Approve it when it is right.</Notice>}
+                  {(task.trial.revision ?? 1) > 1 && task.trialCheck?.clientNote && (
+                    <Notice tone="info">The AI rebuilt the trial from your note: &ldquo;{task.trialCheck.clientNote}&rdquo;. Approve it when it is right.</Notice>
+                  )}
                   {asking === "changes" ? (
                     <div className="space-y-2">
-                      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="What should the trial test instead?" className={cn(inputCls, "resize-none")} />
+                      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="What should the trial test instead? The AI rebuilds it from your note." className={cn(inputCls, "resize-none")} />
                       <div className="flex gap-2">
-                        <Button size="sm" disabled={busy || note.trim().length < 3} onClick={() => followUp(() => api.client.reviewTrial(task.id, "changes", note.trim()))}>Send</Button>
+                        <Button size="sm" disabled={busy || note.trim().length < 3} onClick={() => followUp(() => api.client.reviewTrial(task.id, "changes", note.trim()))}>{busy ? "Rebuilding…" : "Rebuild the trial"}</Button>
                         <Button size="sm" variant="ghost" onClick={() => setAsking(null)}>Cancel</Button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" disabled={busy} onClick={() => run(() => api.client.reviewTrial(task.id, "approve"))} icon={<CheckCircle2 className="size-4" />}>Approve trial</Button>
-                      {tc !== "CHANGES_ASKED" && <Button size="sm" variant="ghost" onClick={() => setAsking("changes")}>Ask for changes</Button>}
+                      <Button size="sm" disabled={busy} onClick={() => run(() => api.client.reviewTrial(task.id, "approve"))} icon={<CheckCircle2 className="size-4" />}>Approve &amp; go live</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setAsking("changes")}>Ask for changes</Button>
                     </div>
                   )}
                 </div>
               )}
 
+              {/* live on the board: the AI's shortlist, counts only */}
+              {task.status === "MATCHING" && (
+                <div className="rounded-[14px] border border-brand-200 bg-brand-50/40 p-4">
+                  <p className="flex items-center gap-2 text-[13px] font-medium text-ink"><Cpu className="size-4 text-brand-600" /> Live on the task board</p>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">
+                    {task.trialStats?.applicants
+                      ? `${task.trialStats.applicants} student${task.trialStats.applicants === 1 ? " has" : "s have"} done the trial. The AI checked their files: ${task.trialStats.shortlisted} reached 90%+ and ${task.trialStats.shortlisted === 1 ? "is" : "are"} with a coordinator.`
+                      : "Students are doing the trial now. The AI checks every upload and sends only 90%+ work to a coordinator."}
+                  </p>
+                </div>
+              )}
+
               {/* 2. fund escrow */}
-              {pay === "AWAITING" && (
+              {pay === "AWAITING" && !cancelled && (
                 <div className="space-y-3 rounded-[14px] border border-line p-4">
                   <p className="flex items-center gap-2 text-[13px] font-medium text-ink"><ShieldCheck className="size-4 text-brand-600" /> Fund the escrow — {taka(task.fee)}</p>
-                  <p className="text-[12px] leading-relaxed text-ink-4">The money is held by the platform and released to the student only when you sign off.</p>
+                  <p className="text-[12px] leading-relaxed text-ink-4">A coordinator can assign a student only once this is funded. The money is held by the platform and released to the student only when you sign off.</p>
                   {methods.length > 0 && (
                     <select value={methodId} onChange={(e) => setMethodId(e.target.value)} className={cn(inputCls, "py-2")} aria-label="Pay with">
                       {methods.map((m) => <option key={m.id} value={m.id}>{m.label} ({m.kind})</option>)}
@@ -556,6 +642,7 @@ function JobCard({ job, methods, onChange, defaultOpen = false }: { job: Job; me
                 <div className="space-y-3 rounded-[14px] border border-brand-200 bg-brand-50/40 p-4">
                   <p className="text-[13px] font-medium text-ink">Delivered — scored by a coordinator</p>
                   {task.submissionNote && <p className="rounded-[10px] bg-white px-3 py-2 text-[12.5px] leading-relaxed text-ink-3">&ldquo;{task.submissionNote}&rdquo;</p>}
+                  {!!task.submissionFiles?.length && <AttachmentList attachments={task.submissionFiles} />}
                   <div className="space-y-1.5">
                     {task.evaluation.scores.map((s) => (
                       <div key={s.dim} className="grid grid-cols-[110px_1fr_36px] items-center gap-3 text-[12px] text-ink-3">
@@ -625,7 +712,7 @@ function Spend({ payments }: { payments: SpendRow[] }) {
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard icon={ShieldCheck} label={L("Held in escrow")} value={taka(sum("HELD"))} hint={L("waiting for your sign-off")} />
         <StatCard icon={Receipt} label={L("Released")} value={taka(sum("RELEASED"))} hint={L("paid to students")} tone="ink" />
-        <StatCard icon={Wallet} label={L("Awaiting deposit")} value={taka(sum("AWAITING"))} hint={L("fund to go live")} tone="brand" />
+        <StatCard icon={Wallet} label={L("Awaiting deposit")} value={taka(sum("AWAITING"))} hint={L("fund so a student can be assigned")} tone="brand" />
       </div>
       <Panel title={L("Escrow ledger")} desc={L("Every task and where its money is")}>
         {payments.length === 0 ? (

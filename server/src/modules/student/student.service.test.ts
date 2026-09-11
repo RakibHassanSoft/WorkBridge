@@ -1,4 +1,4 @@
-import { KycStatus, TaskStatus, TrialCheckStatus, PayStatus } from "@prisma/client";
+import { KycStatus, TaskStatus, TrialCheckStatus, PayStatus, TrialOutcome } from "@prisma/client";
 
 jest.mock("@/config/prisma", () => ({
   __esModule: true,
@@ -7,7 +7,8 @@ jest.mock("@/config/prisma", () => ({
     studentProfile: { findUnique: jest.fn(), update: jest.fn() },
     kycSubmission: { findFirst: jest.fn(), create: jest.fn() },
     task: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
-    trialAttempt: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn() },
+    trialAttempt: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    $transaction: jest.fn((ops: unknown[]) => Promise.resolve(ops)),
     pointEntry: { findMany: jest.fn() },
     payment: { findMany: jest.fn() },
     dispute: { create: jest.fn() },
@@ -80,30 +81,79 @@ describe("studentService", () => {
       ).rejects.toMatchObject({ statusCode: 409 });
     });
 
-    it("creates an AI-scored attempt for a verified student on a live task", async () => {
+    const live = {
+      id: "t1",
+      status: TaskStatus.MATCHING,
+      acceptance: ["done means done"],
+      trialCheck: { status: TrialCheckStatus.APPROVED },
+      trial: { id: "tr1", title: "t", brief: "b", mirrors: "m", minutes: 40, acceptance: ["Produce: x", "Upload the files you produced (not only a description)"] },
+    };
+    const judged = (completion: number, shortlisted: boolean) => ({
+      score: 82,
+      completion,
+      shortlisted,
+      checklist: [{ requirement: "Produce: x", status: shortlisted ? "met" : "partial", evidence: "e" }],
+      flags: [],
+      verdict: "good",
+      coaching: "tip",
+      breakdown: [],
+      source: "engine",
+    });
+
+    it("judges the upload against the TRIAL's requirements and shortlists at 90%+", async () => {
       db.studentProfile.findUnique.mockResolvedValue({ kycStatus: KycStatus.VERIFIED });
-      db.task.findUnique.mockResolvedValue({
-        id: "t1",
-        status: TaskStatus.MATCHING,
-        trialCheck: { status: TrialCheckStatus.APPROVED },
-        trial: { id: "tr1", title: "t", brief: "b", mirrors: "m", minutes: 40 },
-      });
+      db.task.findUnique.mockResolvedValue(live);
       db.trialAttempt.findUnique.mockResolvedValue(null);
-      ai.evaluateAttempt.mockResolvedValue({
-        score: 82,
-        verdict: "good",
-        coaching: "tip",
-        breakdown: [],
-      });
-      db.trialAttempt.create.mockImplementation(({ data }: any) => data);
+      ai.evaluateAttempt.mockResolvedValue(judged(95, true) as any);
+      db.trialAttempt.create.mockImplementation(({ data }: any) => ({ id: "a1", ...data }));
+      db.trialAttempt.findMany.mockResolvedValue([
+        { id: "a0", completion: 100, aiScore: 90, submittedAt: new Date("2026-01-01") },
+        { id: "a1", completion: 95, aiScore: 82, submittedAt: new Date("2026-01-02") },
+      ]);
 
       const res = await studentService.applyToTrial("s1", "t1", {
         summary: "I did the work and flagged the unclear item",
         minutesTaken: 35,
+        attachments: [{ kind: "file", name: "a.png", files: [{ name: "a.png", mime: "image/png", size: 10, content: null, data: "QUJD" }] }],
       });
-      expect(ai.evaluateAttempt).toHaveBeenCalled();
-      expect(res.aiScore).toBe(82);
-      expect(res.points).toBe(0); // no points until selection
+
+      const evalArg = (ai.evaluateAttempt as jest.Mock).mock.calls[0][0];
+      expect(evalArg.requirements).toEqual(live.trial.acceptance); // the trial checklist, not the task's
+      expect(evalArg.attachments[0].files[0].data).toBe("QUJD"); // the judge sees the image
+      const stored = db.trialAttempt.create.mock.calls[0][0].data;
+      expect(stored.attachments[0].files[0].data).toBeUndefined(); // …but it is never stored
+      expect(stored.outcome).toBe(TrialOutcome.SHORTLISTED);
+      expect(stored.completion).toBe(95);
+      expect(stored.points).toBe(0); // no points until selection
+      expect(res.rank).toBe(2); // ranked behind the 100% attempt
+      expect(res.shortlisted).toBe(true);
+    });
+
+    it("gives the judge the other students' work so a copy is caught", async () => {
+      db.studentProfile.findUnique.mockResolvedValue({ kycStatus: KycStatus.VERIFIED });
+      db.task.findUnique.mockResolvedValue(live);
+      db.trialAttempt.findUnique.mockResolvedValue(null);
+      ai.evaluateAttempt.mockResolvedValue(judged(20, false) as any);
+      db.trialAttempt.create.mockImplementation(({ data }: any) => ({ id: "a3", ...data }));
+      db.trialAttempt.findMany.mockResolvedValue([
+        { attachments: [{ kind: "file", name: "x.md", files: [{ name: "x.md", mime: "text/markdown", size: 5, content: "peer work text" }] }] },
+      ]);
+      await studentService.applyToTrial("s1", "t1", { summary: "my own work here", minutesTaken: 30 });
+      expect((ai.evaluateAttempt as jest.Mock).mock.calls[0][0].peers).toEqual(["# x.md\npeer work text"]);
+    });
+
+    it("keeps an attempt under the bar away from the moderator", async () => {
+      db.studentProfile.findUnique.mockResolvedValue({ kycStatus: KycStatus.VERIFIED });
+      db.task.findUnique.mockResolvedValue(live);
+      db.trialAttempt.findUnique.mockResolvedValue(null);
+      ai.evaluateAttempt.mockResolvedValue(judged(70, false) as any);
+      db.trialAttempt.create.mockImplementation(({ data }: any) => ({ id: "a2", ...data }));
+      db.trialAttempt.findMany.mockResolvedValue([]);
+
+      const res = await studentService.applyToTrial("s1", "t1", { summary: "partial work here", minutesTaken: 35 });
+      expect(db.trialAttempt.create.mock.calls[0][0].data.outcome).toBe(TrialOutcome.NOT_SHORTLISTED);
+      expect(res.rank).toBe(0);
+      expect(res.shortlisted).toBe(false);
     });
   });
 

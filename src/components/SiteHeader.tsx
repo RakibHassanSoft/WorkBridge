@@ -31,7 +31,7 @@ const DEMOS: { href: string; label: L; desc: L }[] = [
   {
     href: "/demo/moderator",
     label: { en: "Moderator console", bn: "মডারেটর কনসোল" },
-    desc: { en: "Scope review, payments, verification, controls", bn: "স্কোপ রিভিউ, পেমেন্ট, যাচাই, নিয়ন্ত্রণ" },
+    desc: { en: "AI shortlists, payments, verification, controls", bn: "এআই শর্টলিস্ট, পেমেন্ট, যাচাই, নিয়ন্ত্রণ" },
   },
   {
     href: "/passport/nusrat-jahan",

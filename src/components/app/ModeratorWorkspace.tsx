@@ -22,9 +22,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import AppShell, { type NavItem } from "./AppShell";
-import { EmptyState, Fact, LoadingRows, Notice, Panel, StatCard, StatusBadge, WelcomeBanner, inputCls, taka, useAction, when } from "./parts";
-import { Bar, Button } from "@/components/ui";
-import { ApiError, type Role } from "@/lib/api";
+import ProfilePhotoCard from "./ProfilePhoto";
+import { AttachmentList, Checklist, EmptyState, Fact, LoadingRows, Notice, Panel, SHORTLIST_BAR, StatCard, StatusBadge, WelcomeBanner, inputCls, taka, useAction, when, type ChecklistRow } from "./parts";
+import { Button } from "@/components/ui";
+import { ApiError, type Attachment, type Role } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { L } from "@/lib/i18n";
 import { useApi, useWorkspaceUser } from "@/lib/workspace";
@@ -33,7 +34,7 @@ const L = (en: string, bn?: string): L => ({ en, bn: bn ?? en });
 
 /* Response shapes of the moderator API (see server/src/modules/moderator). */
 type Named = { id: string; name: string; email?: string; role?: string } | null;
-type Trial = { title: string; brief: string; minutes: number; mirrors?: string | null } | null;
+type Trial = { title: string; brief: string; minutes: number; mirrors?: string | null; acceptance?: string[]; revision?: number } | null;
 type ScopeJob = {
   id: string;
   ref: string;
@@ -49,25 +50,50 @@ type ScopeJob = {
   aiRisks?: string[];
   client?: Named;
   sector?: { id: string; name: string } | null;
+  attachments?: Attachment[];
   tasks: { id: string; fee: number; hours: number; trial?: Trial; trialCheck?: { status: string } | null; payment?: { status: string } | null }[];
 };
-type Attempt = { id: string; studentId: string; aiScore: number; aiVerdict?: string; summary?: string; minutesTaken?: number; submittedAt?: string; student?: Named };
-type SelectTask = { id: string; title: string; fee: number; trial?: Trial; job?: { ref: string; client?: Named } | null; attempts: Attempt[] };
-type ReviewTask = { id: string; title: string; fee: number; submissionNote?: string | null; submittedAt?: string | null; acceptance?: string[]; assignee?: Named; job?: { ref: string } | null };
+type Attempt = {
+  id: string;
+  studentId: string;
+  aiScore: number;
+  completion?: number;
+  checklist?: ChecklistRow[] | null;
+  aiFlags?: string[];
+  aiSource?: string | null;
+  rank?: number | null;
+  aiVerdict?: string;
+  summary?: string;
+  minutesTaken?: number;
+  submittedAt?: string;
+  attachments?: Attachment[];
+  student?: Named;
+};
+type SelectTask = {
+  id: string;
+  title: string;
+  fee: number;
+  trial?: Trial;
+  job?: { ref: string; client?: Named } | null;
+  attempts: Attempt[]; // the AI shortlist only (90%+), in rank order
+  belowBar?: number; // attempts the AI kept back
+  funded?: boolean; // escrow held — selection needs it
+};
+type ReviewTask = { id: string; title: string; fee: number; submissionNote?: string | null; submissionFiles?: Attachment[] | null; submittedAt?: string | null; acceptance?: string[]; assignee?: Named; job?: { ref: string } | null };
 type Kyc = { id: string; status: string; createdAt: string; documents: { label: string; detail: string; ok?: boolean }[]; subject?: Named };
 type Payment = { id: string; taskId: string; amount: number; status: string; note?: string | null; method?: string | null; updatedAt: string; task?: { id: string; title: string; status: string } | null; client?: Named };
 type Dispute = { id: string; ref: string; status: string; amount: number; claim: string; evidence?: string[]; outcome?: string | null; resolution?: string | null; raisedByRole: string; createdAt: string; task?: { id: string; title: string } | null; raisedBy?: Named };
 type Ticket = { id: string; ref: string; subject: string; body: string; priority: string; status: string; reply?: string | null; createdAt: string; from?: Named };
 type Account = { id: string; name: string; email: string; role: Role; isActive: boolean; createdAt: string; studentProfile?: { university?: string | null; kycStatus?: string } | null; clientProfile?: { businessName?: string; city?: string | null } | null };
-type Controls = { rateFloors: Record<string, number>; rules: { key: string; label: string; locked: boolean }[] };
+type Controls = { rateFloors: Record<string, number>; shortlistBar?: number; rules: { key: string; label: string; locked: boolean }[] };
 
 type Data = { scopes: ScopeJob[]; select: SelectTask[]; reviews: ReviewTask[]; kyc: Kyc[]; payments: Payment[]; disputes: Dispute[]; support: Ticket[]; users: Account[] };
 const EMPTY: Data = { scopes: [], select: [], reviews: [], kyc: [], payments: [], disputes: [], support: [], users: [] };
 
 const NAV_BASE: NavItem[] = [
   { key: "overview", label: L("Overview", "ওভারভিউ"), icon: LayoutDashboard },
-  { key: "scopes", label: L("Scope review", "স্কোপ রিভিউ"), icon: Cpu },
   { key: "select", label: L("Select student", "শিক্ষার্থী নির্বাচন"), icon: UserCheck },
+  { key: "scopes", label: L("New posts", "নতুন পোস্ট"), icon: Cpu },
   { key: "reviews", label: L("Score work", "কাজ মূল্যায়ন"), icon: ShieldCheck },
   { key: "kyc", label: L("Verify students", "শিক্ষার্থী যাচাই"), icon: IdCard },
   { key: "payments", label: L("Payments", "পেমেন্ট"), icon: Banknote },
@@ -79,8 +105,8 @@ const NAV_BASE: NavItem[] = [
 
 const TITLES: Record<string, { title: L; subtitle: L }> = {
   overview: { title: L("Overview", "ওভারভিউ"), subtitle: L("The human gate the whole model rests on") },
-  scopes: { title: L("Scope review", "স্কোপ রিভিউ"), subtitle: L("Nothing reaches a student until you release it") },
-  select: { title: L("Select the student", "শিক্ষার্থী নির্বাচন"), subtitle: L("The AI ranks the trials; you decide") },
+  scopes: { title: L("New posts", "নতুন পোস্ট"), subtitle: L("Saved at once — the client approves the AI's trial. Correct a price or cancel a post if you need to.") },
+  select: { title: L("Select the student", "শিক্ষার্থী নির্বাচন"), subtitle: L(`The AI sends only trials with ${SHORTLIST_BAR}%+ completion, ranked; you decide`) },
   reviews: { title: L("Score work", "কাজ মূল্যায়ন"), subtitle: L("Score delivered work against the rubric before the client signs off") },
   kyc: { title: L("Verify students", "শিক্ষার্থী যাচাই"), subtitle: L("Read the letter, confirm by phone") },
   payments: { title: L("Payments", "পেমেন্ট"), subtitle: L("Money in, held, released or refunded") },
@@ -129,7 +155,6 @@ export default function ModeratorWorkspace() {
   const openDisputes = data.disputes.filter((x) => x.status !== "RESOLVED").length;
   const unanswered = data.support.filter((x) => !x.reply).length;
   const counts: Record<string, number> = {
-    scopes: data.scopes.length,
     select: data.select.length,
     reviews: data.reviews.length,
     kyc: data.kyc.length,
@@ -177,8 +202,7 @@ export default function ModeratorWorkspace() {
 /* ── Overview ─────────────────────────────────────────────────── */
 
 const QUEUES: { key: string; icon: LucideIcon; label: string; cta: string }[] = [
-  { key: "scopes", icon: Cpu, label: "AI scopes waiting to be released", cta: "Review scopes" },
-  { key: "select", icon: UserCheck, label: "Trial rounds waiting for a selection", cta: "Select students" },
+  { key: "select", icon: UserCheck, label: `AI shortlists (${SHORTLIST_BAR}%+) waiting for a selection`, cta: "Select students" },
   { key: "reviews", icon: ShieldCheck, label: "Delivered work waiting for a score", cta: "Score work" },
   { key: "kyc", icon: IdCard, label: "Students waiting for verification", cta: "Verify students" },
   { key: "disputes", icon: Scale, label: "Disputes waiting for a ruling", cta: "Rule on disputes" },
@@ -186,6 +210,7 @@ const QUEUES: { key: string; icon: LucideIcon; label: string; cta: string }[] = 
 ];
 
 function Overview({ name, data, counts, go }: { name: string; data: Data; counts: Record<string, number>; go: (k: string) => void }) {
+  const meUser = useWorkspaceUser();
   const waiting = Object.values(counts).reduce((a, b) => a + b, 0);
   const held = data.payments.filter((p) => p.status === "HELD").reduce((a, p) => a + p.amount, 0);
   const first = QUEUES.find((q) => counts[q.key]);
@@ -197,10 +222,11 @@ function Overview({ name, data, counts, go }: { name: string; data: Data; counts
         headline={waiting ? `${waiting} item${waiting === 1 ? " is" : "s are"} waiting on a coordinator.` : "Every queue is clear."}
         action={first ? <Button variant="secondary" onClick={() => go(first.key)}>{first.cta}</Button> : undefined}
       >
-        Every AI decision is a draft until you release it. Selections, scores, verifications and rulings here are what make the record trustworthy.
+        Posts go live when the client approves the AI&apos;s trial. The AI checks every student&apos;s trial files and sends you only those at {SHORTLIST_BAR}%+ completion, ranked — you choose who gets the work. Scores, verifications and rulings here are what make the record trustworthy.
       </WelcomeBanner>
+      <ProfilePhotoCard name={meUser?.name ?? name} currentUrl={meUser?.avatarUrl} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Cpu} label={L("Scopes to review")} value={String(counts.scopes)} hint={L("awaiting release")} />
+        <StatCard icon={Cpu} label={L("New posts")} value={String(data.scopes.length)} hint={L("trial waiting for the client")} />
         <StatCard icon={UserCheck} label={L("Selections due")} value={String(counts.select)} hint={L("trial rounds")} tone="brand" />
         <StatCard icon={Banknote} label={L("Held in escrow")} value={taka(held)} hint={L("across all tasks")} />
         <StatCard icon={Scale} label={L("Open disputes")} value={String(counts.disputes)} hint={L("need a ruling")} tone="ink" />
@@ -229,7 +255,7 @@ function Overview({ name, data, counts, go }: { name: string; data: Data; counts
 /* ── Scope review ─────────────────────────────────────────────── */
 
 function Scopes({ items, floors, onChange }: { items: ScopeJob[]; floors: Record<string, number>; onChange: () => void }) {
-  if (items.length === 0) return <EmptyState icon={Cpu} title="No scopes waiting" text="New problems appear here after the AI scopes them. Nothing reaches a student until you release it." />;
+  if (items.length === 0) return <EmptyState icon={Cpu} title="No new posts" text="Problems appear here while the client is checking the AI's trial. They need no approval from you." />;
   return <div className="space-y-5">{items.map((job) => <ScopeCard key={job.id} job={job} floors={floors} onChange={onChange} />)}</div>;
 }
 
@@ -248,8 +274,7 @@ function ScopeCard({ job, floors, onChange }: { job: ScopeJob; floors: Record<st
   const level = rate >= floor ? "ok" : gap >= 25 ? "blocked" : "low";
   const edited = Number(fee) !== task?.fee || Number(hours) !== task?.hours;
 
-  const approve = () =>
-    run(() => api.moderator.approveScope(job.id, edited ? { fee: Number(fee), hours: Number(hours), note: "Re-scoped by coordinator" } : {}));
+  const saveCorrection = () => run(() => api.moderator.approveScope(job.id, { fee: Number(fee), hours: Number(hours), note: "Re-priced by coordinator" }));
 
   return (
     <section className="overflow-hidden rounded-[16px] border border-line bg-white">
@@ -269,6 +294,12 @@ function ScopeCard({ job, floors, onChange }: { job: ScopeJob; floors: Record<st
             <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">The client&apos;s words</p>
             <p className="mt-1 text-[13px] italic leading-relaxed text-ink-2">&ldquo;{job.brief}&rdquo;</p>
           </div>
+          {!!job.attachments?.length && (
+            <div>
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">Documents the client attached</p>
+              <div className="mt-2"><AttachmentList attachments={job.attachments} /></div>
+            </div>
+          )}
           <div>
             <p className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-brand-700"><Cpu className="size-3.5" /> AI scope · {job.aiComplexity ?? "—"} complexity{job.aiConfidence ? ` · ${Math.round(job.aiConfidence * (job.aiConfidence <= 1 ? 100 : 1))}% confident` : ""}</p>
             <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">{job.aiSummary}</p>
@@ -282,9 +313,14 @@ function ScopeCard({ job, floors, onChange }: { job: ScopeJob; floors: Record<st
           )}
           {task?.trial && (
             <div className="rounded-[12px] border border-line p-3.5">
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">Trial · {task.trial.minutes} min</p>
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">AI trial · {task.trial.minutes} min{(task.trial.revision ?? 1) > 1 ? ` · rebuilt v${task.trial.revision}` : ""}</p>
               <p className="mt-1 text-[13px] font-medium text-ink">{task.trial.title}</p>
               <p className="mt-1 text-[12px] leading-relaxed text-ink-4">{task.trial.brief}</p>
+              {!!task.trial.acceptance?.length && (
+                <ol className="mt-2 list-decimal space-y-0.5 pl-4 text-[12px] leading-relaxed text-ink-3">
+                  {task.trial.acceptance.map((a) => <li key={a}>{a}</li>)}
+                </ol>
+              )}
             </div>
           )}
         </div>
@@ -304,21 +340,24 @@ function ScopeCard({ job, floors, onChange }: { job: ScopeJob; floors: Record<st
             {taka(rate)}/hour against the {taka(floor)} floor for {job.sector?.name ?? "this sector"}
             {level === "ok" ? " — cleared." : level === "low" ? ` — ${gap}% under; it will be slow to match.` : ` — ${gap}% under; the client will not be able to fund it.`}
           </Notice>
-          {edited && <p className="text-[12px] text-ink-4">You are re-scoping this: AI suggested {taka(task?.fee ?? 0)} for {task?.hours} h.</p>}
+          <p className="text-[12px] leading-relaxed text-ink-4">No approval needed — this goes live as soon as the client approves the trial. Change the price only if the AI got it wrong (before it is funded).</p>
+          {edited && <p className="text-[12px] text-ink-4">You are correcting the AI&apos;s {taka(task?.fee ?? 0)} for {task?.hours} h.</p>}
           {rejecting ? (
             <div className="space-y-2">
-              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} placeholder="Why is this out of scope? The client sees this." className={cn(inputCls, "resize-none")} />
+              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} placeholder="Why is this post being cancelled? The client sees this." className={cn(inputCls, "resize-none")} />
               <div className="flex gap-2">
-                <Button size="sm" variant="dark" disabled={busy || reason.trim().length < 3} onClick={() => run(() => api.moderator.rejectScope(job.id, reason.trim()))}>Reject problem</Button>
+                <Button size="sm" variant="dark" disabled={busy || reason.trim().length < 3} onClick={() => run(() => api.moderator.rejectScope(job.id, reason.trim()))}>Cancel this post</Button>
                 <Button size="sm" variant="ghost" onClick={() => setRejecting(false)}>Cancel</Button>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              <Button disabled={busy || !Number(fee) || !Number(hours)} onClick={approve} icon={<CheckCircle2 className="size-4" />}>
-                {edited ? "Re-scope & release" : "Approve & release"}
-              </Button>
-              <Button variant="ghost" onClick={() => setRejecting(true)} icon={<XCircle className="size-4" />}>Reject</Button>
+              {edited && (
+                <Button disabled={busy || !Number(fee) || !Number(hours)} onClick={saveCorrection} icon={<CheckCircle2 className="size-4" />}>
+                  Save corrected price
+                </Button>
+              )}
+              <Button variant="ghost" onClick={() => setRejecting(true)} icon={<XCircle className="size-4" />}>Cancel post</Button>
             </div>
           )}
           {err && <Notice tone="error">{err}</Notice>}
@@ -331,7 +370,7 @@ function ScopeCard({ job, floors, onChange }: { job: ScopeJob; floors: Record<st
 /* ── Select the student ───────────────────────────────────────── */
 
 function Select({ items, onChange }: { items: SelectTask[]; onChange: () => void }) {
-  if (items.length === 0) return <EmptyState icon={UserCheck} title="No trial rounds waiting" text="When students have done a live task's trial, the AI's ranking appears here for you to choose from." />;
+  if (items.length === 0) return <EmptyState icon={UserCheck} title="No shortlists waiting" text={`When a student's trial reaches ${SHORTLIST_BAR}% completion, the AI sends it here, ranked, for you to choose from.`} />;
   return <div className="space-y-5">{items.map((task) => <SelectCard key={task.id} task={task} onChange={onChange} />)}</div>;
 }
 
@@ -347,16 +386,20 @@ function SelectCard({ task, onChange }: { task: SelectTask; onChange: () => void
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4">
         <div className="min-w-0">
           <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-ink">{task.title}</h2>
-          <p className="mt-0.5 text-[12px] text-ink-4">{task.job?.ref} · {task.job?.client?.name ?? "—"} · {taka(task.fee)} · {task.attempts.length} applicant{task.attempts.length === 1 ? "" : "s"}</p>
+          <p className="mt-0.5 text-[12px] text-ink-4">
+            {task.job?.ref} · {task.job?.client?.name ?? "—"} · {taka(task.fee)} · {task.attempts.length} shortlisted
+            {task.belowBar ? ` · ${task.belowBar} below the ${SHORTLIST_BAR}% bar (not shown)` : ""}
+          </p>
         </div>
-        <StatusBadge status="MATCHING" />
+        <StatusBadge status={task.funded === false ? "AWAITING" : "HELD"} />
       </div>
       <div className="space-y-3 p-5">
-        <p className="text-[12px] text-ink-4">Ranked by the AI. The selected student gets the task (0 points until delivered); everyone else earns +1.</p>
+        {task.funded === false && <Notice tone="warn">The client has not funded the escrow yet. You can review the shortlist now; selection unlocks once the fee is held.</Notice>}
+        <p className="text-[12px] text-ink-4">The AI checked each student&apos;s files against every trial requirement and ranked those at {SHORTLIST_BAR}%+ by completion, then quality. The selected student gets the task (0 points until delivered); everyone else who did the trial earns +1.</p>
         {task.attempts.map((a, i) => (
           <button
             key={a.id}
-            onClick={() => { setPicked(a.studentId); setReason(`Best trial: ${a.aiScore}/100`); }}
+            onClick={() => { setPicked(a.studentId); setReason(`AI rank #${a.rank ?? i + 1}: ${a.completion ?? "—"}% complete, quality ${a.aiScore}/100`); }}
             aria-pressed={picked === a.studentId}
             className={cn("w-full rounded-[14px] border p-4 text-left transition-all", picked === a.studentId ? "border-brand-500 bg-brand-50/60 shadow-[0_0_0_3px_rgba(26,155,102,.1)]" : "border-line hover:border-brand-200")}
           >
@@ -367,13 +410,14 @@ function SelectCard({ task, onChange }: { task: SelectTask; onChange: () => void
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[13.5px] font-medium text-ink">{a.student?.name ?? "Student"}</p>
-                  <span className="num text-[13px] font-semibold text-ink">{a.aiScore}/100</span>
+                  <span className="num text-[12px] text-ink-4">quality <span className="font-semibold text-ink">{a.aiScore}</span>/100</span>
                 </div>
-                <div className="mt-1.5"><Bar value={a.aiScore} /></div>
+                <div className="mt-2"><Checklist completion={a.completion ?? 0} rows={a.checklist} flags={a.aiFlags} compact={picked !== a.studentId} /></div>
               </div>
             </div>
             {a.aiVerdict && <p className="mt-2.5 text-[12.5px] leading-relaxed text-ink-3">{a.aiVerdict}</p>}
             {a.summary && <p className="mt-1.5 rounded-[10px] bg-white/70 px-3 py-2 text-[12px] leading-relaxed text-ink-4">&ldquo;{a.summary}&rdquo;{a.minutesTaken ? ` — ${a.minutesTaken} min` : ""}</p>}
+            {!!a.attachments?.length && <div className="mt-2"><p className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">Uploaded deliverable</p><AttachmentList attachments={a.attachments} /></div>}
           </button>
         ))}
         {chosen && (
@@ -382,9 +426,10 @@ function SelectCard({ task, onChange }: { task: SelectTask; onChange: () => void
               <span className="mb-1.5 block text-[12.5px] font-medium text-ink-2">Why {chosen.student?.name ?? "this student"}? <span className="font-normal text-ink-4">(kept on the record)</span></span>
               <input value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} />
             </label>
-            <Button disabled={busy || reason.trim().length < 3} onClick={() => run(() => api.moderator.selectStudent(task.id, chosen.studentId, reason.trim()))} icon={<UserCheck className="size-4" />}>
+            <Button disabled={busy || reason.trim().length < 3 || task.funded === false} onClick={() => run(() => api.moderator.selectStudent(task.id, chosen.studentId, reason.trim()))} icon={<UserCheck className="size-4" />}>
               Select {chosen.student?.name ?? "student"}
             </Button>
+            {task.funded === false && <p className="text-[11.5px] text-warn">Waiting for the client to fund the escrow.</p>}
           </div>
         )}
         {err && <Notice tone="error">{err}</Notice>}
@@ -422,6 +467,7 @@ function ReviewCard({ task, onChange }: { task: ReviewTask; onChange: () => void
         <div className="space-y-3">
           <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">What was delivered</p>
           <p className="rounded-[12px] border border-line bg-canvas-2/40 p-3.5 text-[13px] leading-relaxed text-ink-2">{task.submissionNote || "No note was added."}</p>
+          {!!task.submissionFiles?.length && <AttachmentList attachments={task.submissionFiles} />}
           {!!task.acceptance?.length && (
             <ul className="space-y-1.5">
               {task.acceptance.map((a) => (

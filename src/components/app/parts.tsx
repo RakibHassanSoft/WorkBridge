@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import type { LucideIcon } from "lucide-react";
-import { ApiError } from "@/lib/api";
+import { useCallback, useRef, useState } from "react";
+import { CheckCircle2, CircleDashed, File as FileIcon, Folder as FolderIcon, Paperclip, X, XCircle, type LucideIcon } from "lucide-react";
+import { ApiError, type Attachment } from "@/lib/api";
+import { filesToAttachments } from "@/lib/upload";
 import { T, useLang, useNum, type L } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import type { TaskStatus, JobStatus } from "@/data/types";
@@ -150,7 +151,7 @@ const API_STATUS: Record<string, { label: L; tone: Tone }> = {
   // trial attempt
   PENDING: { label: { en: "Pending", bn: "অপেক্ষমাণ" }, tone: "warn" },
   SHORTLISTED: { label: { en: "Shortlisted", bn: "শর্টলিস্টেড" }, tone: "info" },
-  NOT_SHORTLISTED: { label: { en: "Not selected (+1)", bn: "নির্বাচিত হয়নি (+১)" }, tone: "neutral" },
+  NOT_SHORTLISTED: { label: { en: "Not shortlisted", bn: "শর্টলিস্টে নেই" }, tone: "neutral" },
   SELECTED: { label: { en: "Selected", bn: "নির্বাচিত" }, tone: "solid" },
   // verification
   VERIFIED: { label: { en: "Verified", bn: "ভেরিফায়েড" }, tone: "solid" },
@@ -179,6 +180,80 @@ export function StatusBadge({ status, className }: { status?: string | null; cla
     <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", TONES[s.tone], className)}>
       {t(s.label)}
     </span>
+  );
+}
+
+/** The AI's 90% bar — the completion a trial attempt needs to reach the moderator. */
+export const SHORTLIST_BAR = 90;
+
+export type ChecklistRow = { requirement: string; status: "met" | "partial" | "missing" | string; evidence?: string };
+export type JudgedAttempt = { outcome: string; points?: number; pointsReason?: string | null; completion?: number; rank?: number | null };
+
+/** A trial attempt's state in plain words: shortlisted (and where), below the bar, or decided. */
+export function AttemptBadge({ a, className }: { a: JudgedAttempt; className?: string }) {
+  const { t } = useLang();
+  let label: L;
+  let tone: Tone;
+  if (a.outcome === "SELECTED") {
+    label = { en: "Selected", bn: "নির্বাচিত" };
+    tone = "solid";
+  } else if (a.outcome === "SHORTLISTED") {
+    label = a.rank ? { en: `Shortlisted · #${a.rank}`, bn: `শর্টলিস্টেড · #${a.rank}` } : { en: "Shortlisted", bn: "শর্টলিস্টেড" };
+    tone = "info";
+  } else if (a.outcome === "NOT_SHORTLISTED" && a.points === 1) {
+    label = { en: "Not selected (+1)", bn: "নির্বাচিত হয়নি (+১)" };
+    tone = "neutral";
+  } else if (a.outcome === "NOT_SHORTLISTED") {
+    label = { en: `Below the ${SHORTLIST_BAR}% bar`, bn: `${SHORTLIST_BAR}%-এর নিচে` };
+    tone = "warn";
+  } else {
+    label = { en: "Being judged", bn: "যাচাই চলছে" };
+    tone = "warn";
+  }
+  return <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", TONES[tone], className)}>{t(label)}</span>;
+}
+
+/**
+ * The AI judge's result for one trial attempt: completion against the 90% bar,
+ * then every requirement of the trial with what the AI found in the files.
+ */
+export function Checklist({ completion, rows, flags, compact = false }: { completion: number; rows?: ChecklistRow[] | null; flags?: string[] | null; compact?: boolean }) {
+  const clears = completion >= SHORTLIST_BAR;
+  const list = Array.isArray(rows) ? rows : [];
+  return (
+    <div className="space-y-2.5">
+      <div>
+        <div className="flex items-center justify-between text-[12px]">
+          <span className="font-medium text-ink-2">Task completion</span>
+          <span className={cn("num font-semibold", clears ? "text-brand-700" : "text-warn")}>{completion}% <span className="font-normal text-ink-4">/ {SHORTLIST_BAR}% needed</span></span>
+        </div>
+        <div className="relative mt-1.5 h-2 overflow-hidden rounded-full bg-canvas-3" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion} aria-label="Task completion">
+          <div className={cn("h-full rounded-full transition-all", clears ? "bg-brand-500" : "bg-warn")} style={{ width: `${Math.max(2, Math.min(100, completion))}%` }} />
+          <span className="absolute inset-y-0 w-px bg-ink/40" style={{ left: `${SHORTLIST_BAR}%` }} aria-hidden />
+        </div>
+      </div>
+      {list.length > 0 && (
+        <ul className="space-y-1.5">
+          {list.map((r, i) => {
+            const Icon = r.status === "met" ? CheckCircle2 : r.status === "partial" ? CircleDashed : XCircle;
+            return (
+              <li key={`${i}-${r.requirement}`} className="flex items-start gap-2">
+                <Icon className={cn("mt-0.5 size-3.5 shrink-0", r.status === "met" ? "text-brand-600" : r.status === "partial" ? "text-warn" : "text-red-500")} aria-label={r.status} />
+                <div className="min-w-0">
+                  <p className="text-[12.5px] leading-snug text-ink-2">{r.requirement}</p>
+                  {!compact && r.evidence && <p className="mt-0.5 text-[11.5px] leading-snug text-ink-4">{r.evidence}</p>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {!!flags?.length && (
+        <div className="rounded-[10px] bg-warn-bg/60 px-3 py-2 text-[11.5px] leading-relaxed text-ink-3">
+          {flags.map((f) => <p key={f}>⚠ {f}</p>)}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -303,5 +378,85 @@ export function WelcomeBanner({
         {action && <div className="flex shrink-0 flex-wrap gap-2">{action}</div>}
       </div>
     </section>
+  );
+}
+
+
+/* ── Uploaded deliverables (metadata + extracted text) ────────────── */
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** A read-only view of attached files/folders — used everywhere a deliverable is shown. */
+export function AttachmentList({ attachments, onRemove }: { attachments?: Attachment[] | null; onRemove?: (index: number) => void }) {
+  const list = attachments ?? [];
+  if (!list.length) return null;
+  return (
+    <ul className="space-y-1.5">
+      {list.map((a, i) => {
+        const bytes = a.files.reduce((s, f) => s + (f.size || 0), 0);
+        return (
+          <li key={i} className="rounded-[10px] border border-line bg-canvas-2/40 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-ink-2">
+                {a.kind === "folder" ? <FolderIcon className="size-3.5 shrink-0 text-ink-4" /> : <FileIcon className="size-3.5 shrink-0 text-ink-4" />}
+                <span className="truncate font-medium">{a.name}</span>
+                <span className="shrink-0 text-[11px] text-ink-4">· {a.files.length} file{a.files.length === 1 ? "" : "s"} · {fmtBytes(bytes)}</span>
+              </span>
+              {onRemove && (
+                <button type="button" onClick={() => onRemove(i)} aria-label={`Remove ${a.name}`} className="shrink-0 text-ink-4 transition-colors hover:text-ink">
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+            {a.files.length > 1 && (
+              <ul className="mt-1.5 space-y-0.5 pl-5">
+                {a.files.slice(0, 8).map((f, j) => (
+                  <li key={j} className="truncate text-[11.5px] text-ink-4">{f.name}{f.content ? "" : " · binary"}</li>
+                ))}
+                {a.files.length > 8 && <li className="text-[11.5px] text-ink-4">+{a.files.length - 8} more</li>}
+              </ul>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Pick files or a whole folder; reads text-like files so the AI can judge them. */
+export function AttachmentPicker({ value, onChange }: { value: Attachment[]; onChange: (next: Attachment[]) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const count = value.reduce((n, a) => n + a.files.length, 0);
+
+  const add = async (list: FileList | null) => {
+    if (!list || !list.length) return;
+    setBusy(true);
+    try {
+      const next = await filesToAttachments(list);
+      onChange([...value, ...next]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-[10px] border border-line bg-white px-3 py-2 text-[12.5px] text-ink-2 transition-colors hover:border-line-2">
+          <Paperclip className="size-3.5" /> Add files
+        </button>
+        {busy && <span className="text-[12px] text-ink-4">Reading files…</span>}
+      </div>
+      <input ref={fileRef} type="file" multiple hidden onChange={(e) => { add(e.target.files); e.currentTarget.value = ""; }} />
+      <AttachmentList attachments={value} onRemove={(i) => onChange(value.filter((_, idx) => idx !== i))} />
+      <p className="text-[11px] leading-relaxed text-ink-4">
+        PDF, Word, spreadsheets, code and notes are read so the AI can judge the work; other files are recorded by name and size. {count > 0 ? `${count} file${count === 1 ? "" : "s"} attached.` : ""}
+      </p>
+    </div>
   );
 }

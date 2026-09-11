@@ -7,6 +7,11 @@
  * real model can replace this later behind the same interface.
  */
 
+import { Attachment } from "./attachments";
+import { planTrial, judgeAttempt, mergeModelJudgement, ChecklistItem, SHORTLIST_BAR, isFaultBrief, IT_BUILD_CATCH } from "./ai.judge";
+
+export { SHORTLIST_BAR };
+
 export type Complexity = "Low" | "Medium" | "High";
 export type PriceLevel = "ok" | "low" | "blocked";
 export type TaskLevelStr = "micro" | "standard" | "advanced";
@@ -139,8 +144,21 @@ const SECTOR_ACCEPTANCE: Record<string, string[]> = {
   admin: ["Every record entered into the agreed columns", "Unreadable items flagged, not guessed", "Format consistent"],
 };
 
-// The trial: same features, a fraction of the volume, one deliberate ambiguity.
-const TRIAL_SHAPE: Record<string, { what: string; catch_: string }> = {
+// The trial: same features, a fraction of the volume, one deliberate ambiguity,
+// and the sector's proof of work (written so the judge can check it in the files).
+export const TRIAL_PROOF: Record<string, string> = {
+  it: "include a README that says how to run or test it",
+  design: "export the design at both sizes and include the editable source file",
+  content: "cite the source for every fact you state",
+  admin: "use one row per record under a header row of the agreed columns",
+  agri: "tie each finding to figures from the sample and state your assumptions",
+  biz: "show the totals and list every entry that does not reconcile",
+  eng: "state the quantity and the rate basis for every line",
+  social: "quote each respondent's own words under the theme you coded",
+  mkt: "state the target audience and the metric you would track",
+};
+
+export const TRIAL_SHAPE: Record<string, { what: string; catch_: string }> = {
   it: {
     what: "reproduce the fault once and write down exactly what you saw",
     catch_: "one of the steps will not reproduce — say so rather than inventing a cause",
@@ -178,7 +196,7 @@ const TRIAL_SHAPE: Record<string, { what: string; catch_: string }> = {
     catch_: "the segment data is partial — state what you would confirm first",
   },
 };
-const TRIAL_FALLBACK = TRIAL_SHAPE.admin;
+export const TRIAL_FALLBACK = TRIAL_SHAPE.admin;
 
 export function trialSize(hours: number): number {
   // Capped at one hour, never more than an eighth of the job, rounded to 5.
@@ -213,19 +231,28 @@ export function priceCheck(
   return { rate, floor, fair: level === "ok", shortfall, gapPct, level, message };
 }
 
-function buildTrial(sectorId: string, hours: number): BuiltTrial {
+/**
+ * Build the trial as a small copy of the real task: the brief's own features at
+ * trial volume (see ai.judge planTrial), the sector's proof of work, and the
+ * deliberate ambiguity. `note` is a client's change request when rebuilding.
+ */
+export function buildTrial(sectorId: string, hours: number, brief = "", note?: string): BuiltTrial {
   const shape = TRIAL_SHAPE[sectorId] ?? TRIAL_FALLBACK;
-  const minutes = trialSize(hours);
+  const plan = planTrial({
+    brief,
+    hours,
+    minutes: trialSize(hours),
+    what: shape.what,
+    catch_: sectorId === "it" && brief && !isFaultBrief(brief) ? IT_BUILD_CATCH : shape.catch_,
+    proof: TRIAL_PROOF[sectorId] ?? TRIAL_PROOF.admin,
+    note,
+  });
   return {
-    title: `A ${minutes}-minute version: ${shape.what}`,
-    brief: `A sample is attached. Do the same kind of work the real task needs, on a fraction of the volume — ${shape.what}. Note how long it took you. Be aware: ${shape.catch_}.`,
-    minutes,
-    mirrors: `The real task is ${hours} hours of this. The trial copies the part that decides the whole job: ${shape.catch_}.`,
-    acceptance: [
-      "Every item in the sample attempted",
-      "Anything unclear flagged rather than guessed",
-      "Time taken recorded honestly",
-    ],
+    title: plan.title,
+    brief: plan.brief,
+    minutes: plan.minutes,
+    mirrors: plan.mirrors,
+    acceptance: plan.requirements,
   };
 }
 
@@ -301,7 +328,7 @@ export function scopeOne(brief: string, opts: ScopeOptions = {}): ScopeResult {
     title,
     desc,
     signals: hits.slice(0, 6).map((h) => ({ label: h.label, weight: h.weight })),
-    trial: buildTrial(sectorId, estHours),
+    trial: buildTrial(sectorId, estHours, text),
     price: priceCheck(fee, estHours, sectorId),
   };
 }
@@ -316,60 +343,42 @@ function titleCase(s: string): string {
 // ── Trial-attempt evaluation ──
 
 export interface AttemptEvaluation {
-  score: number; // 0..100
-  verdict: string; // public reasoning (shown to everyone)
+  score: number; // 0..100 quality
+  completion: number; // 0..100 share of the trial's requirements delivered
+  shortlisted: boolean; // completion >= SHORTLIST_BAR -> sent to the moderator
+  checklist: ChecklistItem[];
+  flags: string[];
+  verdict: string; // public reasoning (shown to the moderator and client)
   coaching: string; // private, for this student only
   breakdown: { dim: string; score: number; max: number }[];
+  source: "engine" | "model";
+}
+
+export interface AttemptInput {
+  trialTitle: string;
+  trialBrief: string;
+  requirements: string[];
+  trialMinutes: number;
+  summary: string;
+  minutesTaken: number;
+  attachments?: Attachment[];
+  taskAcceptance?: string[];
+  peers?: string[]; // other students' readable work on the same task (copy check)
 }
 
 /**
- * Deterministic evaluation of a trial attempt — the fallback when no model is
- * configured. It rewards the behaviour the trial is designed to test: doing the
- * work, and flagging the deliberate ambiguity rather than guessing past it.
+ * Deterministic evaluation of a trial attempt — used when no model is
+ * configured. Every requirement of the trial is checked against the uploaded
+ * files (see ai.judge), giving a completion % and a per-requirement checklist.
  */
-export function evaluateAttemptDeterministic(input: {
-  summary: string;
-  minutesTaken: number;
-  trialMinutes: number;
-}): AttemptEvaluation {
-  const text = (input.summary ?? "").toLowerCase();
-  const words = text.split(/\s+/).filter(Boolean).length;
+export function evaluateAttemptDeterministic(input: AttemptInput): AttemptEvaluation {
+  return judgeAttempt(input);
+}
 
-  // Completeness: did they actually describe doing the work?
-  const completeness = Math.max(1, Math.min(5, Math.round(words / 20)));
-
-  // Judgement: did they flag/ask about the ambiguity instead of inventing?
-  const flags = /\b(flag|ask|unclear|unsure|cannot|could not|missing|assum|confirm|clarif|guess)\b/i.test(
-    input.summary ?? ""
-  );
-  const judgement = flags ? 5 : 2;
-
-  // Communication: a legible, structured write-up.
-  const communication = Math.max(1, Math.min(5, Math.round(words / 30) + 2));
-
-  // Timeliness: within the trial's time budget.
-  const timeliness =
-    input.minutesTaken <= input.trialMinutes
-      ? 5
-      : input.minutesTaken <= input.trialMinutes * 1.5
-        ? 3
-        : 2;
-
-  const breakdown = [
-    { dim: "Completeness", score: completeness, max: 5 },
-    { dim: "Judgement", score: judgement, max: 5 },
-    { dim: "Communication", score: communication, max: 5 },
-    { dim: "Timeliness", score: timeliness, max: 5 },
-  ];
-  const raw = breakdown.reduce((a, b) => a + b.score, 0);
-  const score = Math.round((raw / 20) * 100);
-
-  const verdict = flags
-    ? "Did the work and flagged the ambiguity rather than guessing — the behaviour the trial is built to find."
-    : "Completed the work but did not flag the deliberate ambiguity; the trial rewards asking over assuming.";
-  const coaching = flags
-    ? "Strong instinct to surface what the brief left unclear. Keep quantifying your time and stating assumptions explicitly."
-    : "Next time, call out the item that does not add up instead of choosing for the client — that judgement is what selection turns on.";
-
-  return { score, verdict, coaching, breakdown };
+/** Fold a model's per-requirement judgement into the engine's integrity facts. */
+export function evaluateWithModel(
+  input: AttemptInput,
+  model: Parameters<typeof mergeModelJudgement>[1]
+): AttemptEvaluation {
+  return mergeModelJudgement(input, model);
 }

@@ -20,8 +20,10 @@ export function createApp(): Application {
       credentials: true,
     })
   );
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Trial uploads carry extracted text and (for images/PDFs) base64 the AI judge
+  // looks at — far over express's 100kb default. Validators cap each field.
+  app.use(express.json({ limit: "25mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "1mb" }));
   if (env.nodeEnv !== "test") app.use(morgan("dev"));
 
   app.use("/api/v1", routes);

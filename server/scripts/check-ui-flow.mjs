@@ -2,8 +2,8 @@
 /**
  * End-to-end check of the three workspaces' API contract against a running
  * server. It walks the whole flow exactly as the UI does it —
- *   client posts -> trial check -> escrow -> moderator releases -> students
- *   apply -> moderator selects -> chat + progress + delivery -> scoring ->
+ *   client posts (no approval) -> trial check (AI rebuilds on changes) -> students
+ *   apply (AI judges files, 90% shortlist) -> moderator selects -> chat + progress + delivery -> scoring ->
  *   revision -> sign-off -> earnings/record/points
  * plus verification, support, disputes, payments, directory and controls —
  * and asserts that every field the UI reads is present in the responses.
@@ -117,39 +117,48 @@ async function main() {
   shape("posted task has trial + unfunded escrow", task, ["trial.title", "trial.brief", "trial.minutes", "trialCheck.status", "payment.status"]);
   ok("new task starts OPEN / trial AWAITING_CLIENT / escrow AWAITING", task?.status === "OPEN" && task?.trialCheck?.status === "AWAITING_CLIENT" && task?.payment?.status === "AWAITING");
 
-  section("Client — trial check + escrow");
-  await step("ask for changes", async () => {
+  ok("posting needs no approval (scope released at once)", job?.scopeApproved === true);
+
+  section("Client — trial check (AI rebuilds on changes) + escrow");
+  await step("ask for changes -> the AI rebuilds the trial", async () => {
     const r = await client.post(`/client/tasks/${task.id}/trial-check`, { decision: "changes", note: "Please test layer naming too" });
-    ok("ask for changes -> CHANGES_ASKED", r.status === "CHANGES_ASKED");
+    ok("changes -> rebuilt trial, back to AWAITING_CLIENT", r.rebuilt === true && r.status === "AWAITING_CLIENT", r.status);
+    ok("the client's note is now a trial requirement", (r.trial?.acceptance ?? []).some((a) => /layer naming/i.test(a)));
+    ok("trial revision bumped", r.trial?.revision === 2, r.trial?.revision);
   });
-  await step("approve after changes", async () => {
+  await step("approve -> live on the board before funding", async () => {
     const r = await client.post(`/client/tasks/${task.id}/trial-check`, { decision: "approve" });
-    ok("approve after changes -> APPROVED", r.status === "APPROVED");
-  });
-  await step("fund escrow", async () => {
-    const r = await client.post(`/client/tasks/${task.id}/deposit`, { paymentMethodId: methods[0]?.id });
-    ok("fund escrow -> HELD", r.payment?.status === "HELD");
+    ok("approve -> APPROVED", r.status === "APPROVED");
+    const live = (await client.get("/client/jobs")).find((j) => j.id === job?.id);
+    ok("task goes live (MATCHING) on the client's approval alone", live?.tasks?.[0]?.status === "MATCHING", live?.tasks?.[0]?.status);
   });
 
-  section("Moderator — scope review");
-  const scopes = await mod.get("/moderator/scopes");
-  const sc = scopes.find((j) => j.id === job?.id);
-  shape("new job is in the scope queue with what the card reads", sc, ["ref", "brief", "aiSummary", "aiConfidence", "client.name", "sector.id", "sector.name", "tasks.0.fee", "tasks.0.hours", "tasks.0.trial.title", "tasks.0.trialCheck.status", "tasks.0.payment.status"]);
+  section("Moderator — posted problems (oversight) + controls");
   const controls = await mod.get("/moderator/controls");
-  shape("controls (rate floors used by the fair-price check)", controls, ["rateFloors", "rules.0.label", "rules.0.locked"]);
-  await step("release scope", () => mod.post(`/moderator/scopes/${job.id}/approve`, {}));
-  const afterRelease = (await client.get("/client/jobs")).find((j) => j.id === job?.id);
-  ok("task goes live (MATCHING) once all three gates clear", afterRelease?.tasks?.[0]?.status === "MATCHING", afterRelease?.tasks?.[0]?.status);
+  shape("controls (rate floors + shortlist bar)", controls, ["rateFloors", "shortlistBar", "rules.0.label", "rules.0.locked"]);
+  ok("shortlist bar is 90%", controls?.shortlistBar === 90);
 
   section("Student — find tasks + apply by trial");
   const board = await nusrat.get("/student/tasks");
   const bt = board.find((t) => t.id === task?.id);
   shape("board task has what the apply card reads", bt, ["title", "desc", "fee", "hours", "level", "skills", "applied", "createdAt", "sector.id", "sector.name", "job.ref", "trial.title", "trial.minutes", "trial.acceptance"]);
-  await step("apply (Nusrat)", async () => {
-    const a = await nusrat.post(`/student/tasks/${task.id}/apply`, { summary: "Measured the ground floor and drew it with named layers. Two dimensions were unclear, so I flagged them to confirm instead of guessing.", minutesTaken: 40 });
-    shape("attempt is scored by the AI", a, ["aiScore", "aiVerdict", "aiCoaching", "outcome"]);
+  // Nusrat uploads real work (a DXF with named layers, measurements, notes that
+  // flag the unmeasurable dimension). Tanvir uploads an empty PDF.
+  const nusratFiles = [{ kind: "folder", name: "ground-floor", files: [
+    { name: "ground-floor/ground-floor-asbuilt.dxf", mime: "image/vnd.dxf", size: 5200, content: "0\nSECTION\n2\nTABLES\n0\nLAYER\n2\nA-WALL\n0\nLAYER\n2\nA-DOOR\n0\nLAYER\n2\nA-DIMS\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nLINE\n8\nA-WALL\n10\n0.0\n20\n0.0\n11\n24.6\n21\n0.0\n0\nENDSEC\n0\nEOF" },
+    { name: "ground-floor/measurements.csv", mime: "text/csv", size: 300, content: "room,length_m,width_m,height_m,note\nLoading bay,24.6,12.2,6.1,\nStore A,12.0,9.8,4.2,\nStore B,11.9,9.8,4.2,\nOffice,6.4,4.1,3.0,\nStair core,3.2,5.5,,height not measurable — flagged\nToilet block,4.0,2.8,3.0," },
+    { name: "ground-floor/NOTES.md", mime: "text/markdown", size: 600, content: "# Ground floor — as-built\nMeasured the ground floor of the warehouse (loading bay, two stores, office, stair core, toilets) with a laser meter; quantities per room are in measurements.csv.\nRedrawn in AutoCAD and saved as DXF.\n## Layer naming\nLayers follow the AIA convention: A-WALL, A-DOOR, A-DIMS — one layer per element so the engineer can switch them off.\n## Flagged\nThe stair-core height and the mezzanine edge could not be measured from the floor. I did not assume a value — both need confirming on a second visit." },
+  ] }];
+  await step("apply (Nusrat) with real files", async () => {
+    const a = await nusrat.post(`/student/tasks/${task.id}/apply`, { summary: "Measured and redrew the ground floor in AutoCAD with named layers; two dimensions could not be measured, so I flagged them.", minutesTaken: 40, attachments: nusratFiles });
+    shape("attempt is judged by the AI", a, ["aiScore", "completion", "checklist.0.requirement", "checklist.0.status", "checklist.0.evidence", "aiVerdict", "aiCoaching", "outcome"]);
+    ok("complete work clears the 90% bar -> SHORTLISTED", a.outcome === "SHORTLISTED" && a.completion >= 90, `${a.outcome} ${a.completion}%`);
+    ok("one checklist row per trial requirement", a.checklist?.length === bt?.trial?.acceptance?.length);
   });
-  await step("apply (Tanvir)", () => tanvir.post(`/student/tasks/${task.id}/apply`, { summary: "Drew the sample floor plan in AutoCAD and exported a PDF.", minutesTaken: 55 }));
+  await step("apply (Tanvir) with an empty file", async () => {
+    const a = await tanvir.post(`/student/tasks/${task.id}/apply`, { summary: "Drew the sample floor plan in AutoCAD and exported a PDF.", minutesTaken: 55, attachments: [{ kind: "file", name: "plan.pdf", files: [{ name: "plan.pdf", mime: "application/pdf", size: 0, content: null }] }] });
+    ok("empty upload stays below the bar -> NOT_SHORTLISTED", a.outcome === "NOT_SHORTLISTED" && a.completion < 90, `${a.outcome} ${a.completion}%`);
+  });
   await step("second apply is refused", async () => {
     try {
       await nusrat.post(`/student/tasks/${task.id}/apply`, { summary: "again, trying twice here", minutesTaken: 20 });
@@ -167,13 +176,34 @@ async function main() {
     }
   });
   const trials = await nusrat.get("/student/trials");
-  shape("trials list", trials.find((a) => a.task?.id === task?.id), ["aiScore", "aiVerdict", "aiCoaching", "outcome", "points", "minutesTaken", "submittedAt", "task.title"]);
+  shape("trials list", trials.find((a) => a.task?.id === task?.id), ["aiScore", "completion", "checklist", "aiVerdict", "aiCoaching", "outcome", "points", "minutesTaken", "submittedAt", "task.title"]);
 
   section("Moderator — select the student");
   const rounds = await mod.get("/moderator/select");
   const round = rounds.find((r) => r.id === task?.id);
-  shape("selection round has ranked attempts", round, ["title", "fee", "job.ref", "job.client.name", "attempts.0.student.name", "attempts.0.aiScore", "attempts.0.summary", "attempts.0.studentId"]);
-  ok("attempts are ranked by AI score", round && round.attempts.every((a, i, arr) => i === 0 || arr[i - 1].aiScore >= a.aiScore));
+  shape("selection round has the AI shortlist", round, ["title", "fee", "job.ref", "job.client.name", "attempts.0.student.name", "attempts.0.aiScore", "attempts.0.completion", "attempts.0.rank", "attempts.0.summary", "attempts.0.studentId", "belowBar", "bar", "funded"]);
+  ok("only 90%+ attempts reach the moderator", round && round.attempts.every((a) => a.outcome === "SHORTLISTED" && a.completion >= 90));
+  ok("the below-bar attempt is counted, not shown", round?.belowBar === 1, round?.belowBar);
+  await step("selection waits for escrow", async () => {
+    try {
+      await mod.post(`/moderator/tasks/${task.id}/select`, { studentId: nusrat.user.id, reason: "Best trial" });
+      ok("selection before funding is refused", false, "accepted");
+    } catch (e) {
+      ok("selection before funding is refused (409)", e.status === 409, e.message);
+    }
+  });
+  await step("fund escrow", async () => {
+    const r = await client.post(`/client/tasks/${task.id}/deposit`, { paymentMethodId: methods[0]?.id });
+    ok("fund escrow -> HELD", r.payment?.status === "HELD");
+  });
+  await step("a below-bar student cannot be selected", async () => {
+    try {
+      await mod.post(`/moderator/tasks/${task.id}/select`, { studentId: tanvir.user.id, reason: "x" });
+      ok("below-bar selection refused", false, "accepted");
+    } catch (e) {
+      ok("below-bar selection refused (400)", e.status === 400, e.message);
+    }
+  });
   await step("select Nusrat", () => mod.post(`/moderator/tasks/${task.id}/select`, { studentId: nusrat.user.id, reason: "Best trial and flagged the ambiguity" }));
   const tanvirPts = await tanvir.get("/student/points");
   ok("the student who was not selected earns +1", tanvirPts.entries.some((p) => p.taskId === task?.id && p.delta === 1));
@@ -291,9 +321,9 @@ async function main() {
   });
   const leftover = (await mod.get("/moderator/scopes"))[0];
   if (leftover)
-    await step("reject a scope", async () => {
+    await step("cancel a posted problem (oversight)", async () => {
       const r = await mod.post(`/moderator/scopes/${leftover.id}/reject`, { reason: "Needs a site visit before scoping." });
-      ok("scope rejected", r.rejected === true);
+      ok("post cancelled", r.rejected === true);
     });
 
   console.log(`\n${failed ? "✗" : "✓"} ${passed} passed, ${failed} failed`);

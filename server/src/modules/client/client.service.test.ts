@@ -6,10 +6,11 @@ jest.mock("@/config/prisma", () => ({
     job: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     task: { findUnique: jest.fn(), update: jest.fn() },
     trialCheck: { update: jest.fn() },
+    trial: { update: jest.fn() },
     payment: { update: jest.fn(), findMany: jest.fn() },
     paymentMethod: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
     evaluation: { update: jest.fn() },
-    trialAttempt: { updateMany: jest.fn() },
+    trialAttempt: { updateMany: jest.fn(), groupBy: jest.fn() },
     pointEntry: { create: jest.fn() },
     dispute: { create: jest.fn() },
     $transaction: jest.fn((ops: unknown[]) => Promise.resolve(ops)),
@@ -20,7 +21,11 @@ jest.mock("@/modules/ai/ai.service", () => ({
   aiService: {
     scope: jest.fn(),
     checkPrice: jest.fn(),
+    rebuildTrial: jest.fn(),
   },
+}));
+jest.mock("@/modules/task/task.service", () => ({
+  taskService: { maybeActivate: jest.fn() },
 }));
 
 import prisma from "@/config/prisma";
@@ -65,7 +70,19 @@ describe("clientService", () => {
       expect(taskData.fee).toBe(6000);
       expect(taskData.trialCheck.create.status).toBe(TrialCheckStatus.AWAITING_CLIENT);
       expect(taskData.payment.create.status).toBe(PayStatus.AWAITING);
+      expect(arg.data.scopeApproved).toBe(true); // stored at once — no approval step
       expect(result.price.level).toBe("ok");
+    });
+
+    it("never stores the base64 of uploaded brief documents", async () => {
+      ai.scope.mockResolvedValue(scopeFixture);
+      db.job.create.mockResolvedValue({ id: "job3" });
+      await clientService.postJob("client1", {
+        brief: "x".repeat(20),
+        attachments: [{ kind: "file", name: "a.png", files: [{ name: "a.png", mime: "image/png", size: 10, content: null, data: "QUJD" }] }],
+      });
+      const stored = db.job.create.mock.calls[0][0].data.attachments;
+      expect(stored[0].files[0].data).toBeUndefined();
     });
 
     it("uses the client's budget when provided", async () => {
@@ -75,6 +92,19 @@ describe("clientService", () => {
       const arg = db.job.create.mock.calls[0][0];
       expect(arg.data.budget).toBe(9000);
       expect(arg.data.tasks.create.fee).toBe(9000);
+    });
+  });
+
+  describe("listJobs", () => {
+    it("adds trial stats (applicants, AI-shortlisted) without naming anyone", async () => {
+      db.job.findMany.mockResolvedValue([{ id: "j1", tasks: [{ id: "t1" }, { id: "t2" }] }]);
+      db.trialAttempt.groupBy.mockResolvedValue([
+        { taskId: "t1", outcome: "SHORTLISTED", _count: { _all: 2 } },
+        { taskId: "t1", outcome: "NOT_SHORTLISTED", _count: { _all: 3 } },
+      ]);
+      const [j] = (await clientService.listJobs("me")) as any[];
+      expect(j.tasks[0].trialStats).toEqual({ applicants: 5, shortlisted: 2 });
+      expect(j.tasks[1].trialStats).toEqual({ applicants: 0, shortlisted: 0 });
     });
   });
 
@@ -88,34 +118,61 @@ describe("clientService", () => {
   });
 
   describe("reviewTrial", () => {
-    it("approves the trial (activation is handled by the shared gate)", async () => {
-      db.task.findUnique.mockResolvedValue({
-        id: "t1",
-        jobId: "job1",
-        status: "OPEN",
-        job: { clientId: "me", status: "SCOPING", scopeApproved: false },
-        trialCheck: { status: TrialCheckStatus.AWAITING_CLIENT },
-        payment: { status: PayStatus.HELD },
-      });
+    const owned = {
+      id: "t1",
+      jobId: "job1",
+      status: "OPEN",
+      hours: 10,
+      sectorId: "it",
+      sector: { name: "IT & Software" },
+      job: { clientId: "me", status: "SCOPING", scopeApproved: true, brief: "Build an inventory dashboard and a daily sales report.", attachments: null },
+      trial: { title: "old", brief: "old brief", acceptance: ["a", "b"], revision: 1 },
+      trialCheck: { status: TrialCheckStatus.AWAITING_CLIENT },
+      payment: { status: PayStatus.AWAITING },
+    };
+
+    it("approving puts the task live on the board (even before funding)", async () => {
+      const { taskService } = jest.requireMock("@/modules/task/task.service");
+      db.task.findUnique.mockResolvedValue(owned);
       db.trialCheck.update.mockResolvedValue({ status: TrialCheckStatus.APPROVED });
 
-      await clientService.reviewTrial("me", "t1", { decision: "approve" });
+      const res = await clientService.reviewTrial("me", "t1", { decision: "approve" });
 
       expect(db.trialCheck.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { taskId: "t1" } })
+        expect.objectContaining({ where: { taskId: "t1" }, data: expect.objectContaining({ status: TrialCheckStatus.APPROVED }) })
       );
+      expect(taskService.maybeActivate).toHaveBeenCalledWith("t1");
+      expect((res as any).live).toBe(true);
     });
 
-    it("records a change request without activating", async () => {
-      db.task.findUnique.mockResolvedValue({
-        id: "t1",
-        job: { clientId: "me" },
-        trialCheck: { status: TrialCheckStatus.AWAITING_CLIENT },
-        payment: { status: PayStatus.AWAITING },
-      });
-      db.trialCheck.update.mockResolvedValue({ status: TrialCheckStatus.CHANGES_ASKED });
-      await clientService.reviewTrial("me", "t1", { decision: "changes", note: "no" });
-      expect(db.task.update).not.toHaveBeenCalled();
+    it("asking for changes makes the AI rebuild the trial and hands it back for approval", async () => {
+      const { taskService } = jest.requireMock("@/modules/task/task.service");
+      db.task.findUnique.mockResolvedValue(owned);
+      ai.rebuildTrial.mockResolvedValue({ title: "new", brief: "new brief", minutes: 45, mirrors: "m", acceptance: ["x", "y", "z"] });
+      db.trial.update.mockResolvedValue({ title: "new" });
+      db.trialCheck.update.mockResolvedValue({ status: TrialCheckStatus.AWAITING_CLIENT });
+
+      const res = await clientService.reviewTrial("me", "t1", { decision: "changes", note: "test the sales report too" });
+
+      expect(ai.rebuildTrial).toHaveBeenCalledWith(expect.objectContaining({ note: "test the sales report too", sectorId: "it" }));
+      expect(db.trial.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ title: "new", acceptance: ["x", "y", "z"], revision: { increment: 1 } }) })
+      );
+      expect(db.trialCheck.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: TrialCheckStatus.AWAITING_CLIENT }) })
+      );
+      expect(taskService.maybeActivate).not.toHaveBeenCalled();
+      expect((res as any).rebuilt).toBe(true);
+    });
+
+    it("refuses a change request with no note", async () => {
+      db.task.findUnique.mockResolvedValue(owned);
+      await expect(clientService.reviewTrial("me", "t1", { decision: "changes", note: " " })).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it("refuses to review a trial that is already approved", async () => {
+      db.task.findUnique.mockResolvedValue({ ...owned, trialCheck: { status: TrialCheckStatus.APPROVED } });
+      await expect(clientService.reviewTrial("me", "t1", { decision: "approve" })).rejects.toMatchObject({ statusCode: 409 });
     });
   });
 

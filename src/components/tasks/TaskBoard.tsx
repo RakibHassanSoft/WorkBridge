@@ -331,69 +331,69 @@ function TaskCard({ task, onOpen, matched }: { task: Task; onOpen: () => void; m
   const client = job ? clientById(job.clientId) : undefined;
   const sector = sectorById(task.sectorId);
   const mine = task.skills.filter((s) => ME.skills.includes(s));
+  const applicants = meta?.applicants ?? 0;
 
   return (
     <button
       onClick={onOpen}
-      className="group flex h-full w-full flex-col rounded-[18px] border border-line bg-white p-5 text-left transition-all duration-400 ease-[cubic-bezier(.16,1,.3,1)] hover:-translate-y-1 hover:border-brand-200 hover:shadow-[0_1px_2px_rgba(10,14,12,.05),0_22px_44px_-24px_rgba(10,14,12,.22)]"
+      className="group flex h-full w-full flex-col overflow-hidden rounded-[18px] border border-line bg-white text-left transition-all duration-400 ease-[cubic-bezier(.16,1,.3,1)] hover:-translate-y-1 hover:border-brand-200 hover:shadow-[0_1px_2px_rgba(10,14,12,.05),0_22px_44px_-24px_rgba(10,14,12,.22)]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-[10px] text-white" style={{ background: sector.accent }}>
-          <SectorIcon name={sector.icon} className="size-4" />
+      <div className="flex items-center justify-between gap-2 px-5 pt-4">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas-2 py-1 pl-1 pr-2.5 text-[11px] font-medium text-ink-3 ring-1 ring-inset ring-line">
+          <span className="grid size-5 place-items-center rounded-full text-white" style={{ background: sector.accent }}>
+            <SectorIcon name={sector.icon} className="size-3" />
+          </span>
+          {t(sector.name)}
         </span>
         <div className="flex items-center gap-1.5">
           {matched && mine.length > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[10.5px] font-semibold text-brand-700 ring-1 ring-inset ring-brand-100">
               <Sparkles className="size-2.5" />
-              <T v={{ en: "Your skills", bn: "আপনার স্কিল" }} />
+              <T v={{ en: "Fits you", bn: "আপনার জন্য" }} />
             </span>
           )}
           <StatusPill status={task.status} />
         </div>
       </div>
 
-      <h3 className="mt-4 text-[15px] font-semibold leading-snug tracking-[-0.015em] text-ink">{t(task.title)}</h3>
+      <div className="flex flex-1 flex-col px-5 pb-5 pt-3">
+        <h3 className="text-[15.5px] font-semibold leading-snug tracking-[-0.015em] text-ink group-hover:text-brand-800">{t(task.title)}</h3>
 
-      {client && (
-        <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-ink-4">
-          <Building2 className="size-3" />
-          {t(client.name)}
-          <span>·</span>
-          <span className="num">{job?.ref}</span>
-        </p>
-      )}
+        {client && (
+          <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-ink-4">
+            <Building2 className="size-3 shrink-0" />
+            <span className="truncate">{t(client.name)}</span>
+            <span>·</span>
+            <span className="num shrink-0">{job?.ref}</span>
+          </p>
+        )}
 
-      {meta && <p className="mt-3 line-clamp-2 text-[12.5px] leading-relaxed text-ink-3">{t(meta.aiSimple)}</p>}
+        {meta && <p className="mt-3 line-clamp-2 text-[12.5px] leading-relaxed text-ink-3">{t(meta.aiSimple)}</p>}
 
-      <div className="mt-4 flex flex-wrap gap-1.5">
-        {task.skills.slice(0, 3).map((s) => (
-          <span
-            key={s}
-            className={cn(
-              "rounded-md px-2 py-1 text-[11px] ring-1",
-              mine.includes(s) ? "bg-brand-50 text-brand-700 ring-brand-100" : "bg-canvas-2 text-ink-3 ring-line"
-            )}
-          >
-            {s}
-          </span>
-        ))}
-      </div>
+        <div className="mt-3.5 flex flex-wrap gap-1.5">
+          {task.skills.slice(0, 3).map((s) => (
+            <span
+              key={s}
+              className={cn(
+                "rounded-md px-2 py-1 text-[11px] ring-1",
+                mine.includes(s) ? "bg-brand-50 text-brand-700 ring-brand-100" : "bg-canvas-2 text-ink-3 ring-line"
+              )}
+            >
+              {s}
+            </span>
+          ))}
+          {task.skills.length > 3 && <span className="rounded-md bg-canvas-2 px-2 py-1 text-[11px] text-ink-4 ring-1 ring-line">+{n(task.skills.length - 3)}</span>}
+        </div>
 
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4" style={{ marginTop: "1.25rem" }}>
-        <span className="num text-[17px] font-semibold text-ink">৳{n(task.fee.toLocaleString("en-US"))}</span>
-        <div className="flex items-center gap-3 text-[11.5px] text-ink-4">
-          <span className="num flex items-center gap-1">
-            <Timer className="size-3" />
-            {n(task.hours)}h
-          </span>
-          <span className="num flex items-center gap-1">
-            <Users className="size-3" />
-            {n(meta?.applicants ?? 0)}
-          </span>
-          <span className="flex items-center gap-1">
-            <Clock3 className="size-3" />
-            {meta && t(meta.postedLabel)}
-          </span>
+        <div className="mt-auto flex items-end justify-between gap-3 border-t border-line pt-4" style={{ marginTop: "1.25rem" }}>
+          <div>
+            <span className="num block text-[19px] font-semibold leading-none text-ink">৳{n(task.fee.toLocaleString("en-US"))}</span>
+            <span className="num mt-1 flex items-center gap-1 text-[11px] text-ink-4"><Timer className="size-3" />{n(task.hours)}h estimate</span>
+          </div>
+          <div className="flex flex-col items-end gap-1 text-[11.5px] text-ink-4">
+            <span className="num flex items-center gap-1"><Users className="size-3" />{applicants === 0 ? t({ en: "Be first", bn: "প্রথম হোন" }) : `${n(applicants)} ${t({ en: "applied", bn: "আবেদন" })}`}</span>
+            {meta && <span className="flex items-center gap-1"><Clock3 className="size-3" />{t(meta.postedLabel)}</span>}
+          </div>
         </div>
       </div>
     </button>

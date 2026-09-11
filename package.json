@@ -5,12 +5,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "npx serve out",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "clsx": "^2.1.1",
     "lottie-web": "^5.12.2",
     "lucide-react": "^1.43.0",
+    "mammoth": "^1.8.0",
+    "pdfjs-dist": "^4.7.76",
     "next": "^16.3.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -24,7 +28,8 @@
     "playwright": "^1.63.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   },
   "private": true,
   "engines": {

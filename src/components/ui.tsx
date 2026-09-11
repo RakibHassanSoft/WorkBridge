@@ -297,7 +297,17 @@ export function Bar({ value, tone = "brand" }: { value: number; tone?: "brand" |
 }
 
 /* ── Avatar ───────────────────────────────────────────────────── */
-export function Avatar({ name, size = 36, tone }: { name: string; size?: number; tone?: string }) {
+export function Avatar({ name, size = 36, tone, src }: { name: string; size?: number; tone?: string; src?: string | null }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className="inline-block shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   const initials = name
     .split(" ")
     .filter(Boolean)

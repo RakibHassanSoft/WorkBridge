@@ -2,11 +2,26 @@ import { z } from "zod";
 
 const taskIdParam = z.object({ taskId: z.string().min(1) });
 
+// Uploaded files (metadata + extracted text) a client attaches to a brief.
+const uploadedFile = z.object({
+  name: z.string().min(1).max(400),
+  mime: z.string().max(200),
+  size: z.number().int().nonnegative(),
+  content: z.string().max(200000).nullable().optional(),
+  // base64 of an image/PDF for the AI judge to look at (stripped before storing)
+  data: z.string().max(16_000_000).nullable().optional(),
+});
+export const attachmentsSchema = z
+  .array(z.object({ kind: z.enum(["file", "folder"]), name: z.string().min(1).max(400), files: z.array(uploadedFile).max(500) }))
+  .max(50)
+  .optional();
+
 export const postJobSchema = z.object({
   body: z.object({
     brief: z.string().min(10, "Describe the problem in a sentence or two"),
     title: z.string().max(160).optional(),
     budget: z.number().int().positive().optional(),
+    attachments: attachmentsSchema,
   }),
 });
 

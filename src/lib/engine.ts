@@ -12,6 +12,7 @@
  * a model without touching the UI.
  */
 
+import { planTrial, SHORTLIST_BAR, isFaultBrief, IT_BUILD_CATCH, IT_BUILD_CATCH_BN } from "./judge";
 import type { L } from "@/lib/i18n";
 import { SECTORS, sectorById } from "@/data/sectors";
 import { STUDENTS } from "@/data/people";
@@ -688,7 +689,7 @@ export function scopeOne(brief: string, opts?: { sectorId?: string; budget?: num
     confidence: full.confidence,
     risks: full.risks,
     task,
-    trial: buildTrial(task, full.sectorId),
+    trial: buildTrial(task, full.sectorId, brief),
     price: priceCheck(fee, hours, full.sectorId),
   };
 }
@@ -721,30 +722,77 @@ const TRIAL_SHAPE: Record<string, { what: L; catch_: L }> = {
     what: { en: "reconcile one week against the sample statement", bn: "নমুনা বিবরণীর সাথে এক সপ্তাহ মিলিয়ে দেখুন" },
     catch_: { en: "two entries will not reconcile — list them instead of forcing a match", bn: "দুটি এন্ট্রি মিলবে না — জোর করে না মিলিয়ে তালিকা করুন" },
   },
+  eng: {
+    what: { en: "quantify one section from the sample drawing", bn: "নমুনা ড্রয়িং থেকে একটি অংশের পরিমাণ বের করুন" },
+    catch_: { en: "one dimension is missing — flag it rather than assuming a value", bn: "একটি মাপ নেই — মান ধরে না নিয়ে চিহ্নিত করুন" },
+  },
+  social: {
+    what: { en: "code three sample interview responses into the agreed themes", bn: "তিনটি নমুনা সাক্ষাৎকারের উত্তর নির্ধারিত থিমে কোড করুন" },
+    catch_: { en: "one response fits no theme — note it instead of forcing a fit", bn: "একটি উত্তর কোনো থিমে পড়ে না — জোর করে না বসিয়ে উল্লেখ করুন" },
+  },
+  mkt: {
+    what: { en: "draft one ad and the targeting for a single segment", bn: "একটি সেগমেন্টের জন্য একটি বিজ্ঞাপন ও টার্গেটিং লিখুন" },
+    catch_: { en: "the segment data is partial — state what you would confirm first", bn: "সেগমেন্টের তথ্য অসম্পূর্ণ — আগে কী নিশ্চিত করবেন লিখুন" },
+  },
 };
 
 const TRIAL_FALLBACK = TRIAL_SHAPE.admin;
 
-export function buildTrial(task: ScopedTask, sectorId: string): BuiltTrial {
-  const shape = TRIAL_SHAPE[sectorId] ?? TRIAL_FALLBACK;
+/* How each sector proves the work — written so the judge can find it in the files. */
+const TRIAL_PROOF: Record<string, L> = {
+  it: { en: "include a README that says how to run or test it", bn: "কীভাবে চালাবেন বা টেস্ট করবেন তা README-তে লিখুন" },
+  design: { en: "export the design at both sizes and include the editable source file", bn: "দুই সাইজেই এক্সপোর্ট করুন এবং এডিটযোগ্য সোর্স ফাইল দিন" },
+  content: { en: "cite the source for every fact you state", bn: "প্রতিটি তথ্যের সূত্র উল্লেখ করুন" },
+  admin: { en: "use one row per record under a header row of the agreed columns", bn: "নির্ধারিত কলামের হেডারের নিচে প্রতি রেকর্ডে এক সারি ব্যবহার করুন" },
+  agri: { en: "tie each finding to figures from the sample and state your assumptions", bn: "প্রতিটি ফলাফল নমুনার সংখ্যার সাথে মিলিয়ে দিন এবং অনুমানগুলো লিখুন" },
+  biz: { en: "show the totals and list every entry that does not reconcile", bn: "মোট দেখান এবং যে এন্ট্রিগুলো মেলে না তার তালিকা দিন" },
+  eng: { en: "state the quantity and the rate basis for every line", bn: "প্রতিটি লাইনের পরিমাণ ও রেটের ভিত্তি লিখুন" },
+  social: { en: "quote each respondent's own words under the theme you coded", bn: "প্রতিটি থিমের নিচে উত্তরদাতার নিজের কথা উদ্ধৃত করুন" },
+  mkt: { en: "state the target audience and the metric you would track", bn: "লক্ষ্য দর্শক এবং কোন মেট্রিক ট্র্যাক করবেন তা লিখুন" },
+};
+
+const REQ_BN: [RegExp, (m: string) => string][] = [
+  [/^Produce, at trial size: (.*)$/, (m) => `ট্রায়াল আকারে তৈরি করুন: ${m}`],
+  [/^Find the cause and show a fix for: (.*)$/, (m) => `কারণ খুঁজে সমাধান দেখান: ${m}`],
+  [/^Client's instruction: (.*)$/, (m) => `ক্লায়েন্টের নির্দেশনা: ${m}`],
+  [/^Flag the unclear point instead of guessing: (.*)$/, (m) => `অনুমান না করে অস্পষ্ট বিষয়টি চিহ্নিত করুন: ${m}`],
+  [/^Upload the files you produced/, () => "যে ফাইলগুলো তৈরি করেছেন সেগুলো আপলোড করুন (শুধু বর্ণনা নয়)"],
+];
+
+/**
+ * The trial is a small copy of the real task: the brief's own features at
+ * trial volume (see ./judge planTrial), the sector's proof of work and the
+ * deliberate ambiguity. `note` is the client's change request when the AI
+ * rebuilds the trial. The requirement list is what the judge checks uploads
+ * against — the same builder the server uses.
+ */
+export function buildTrial(task: ScopedTask, sectorId: string, brief = "", note?: string): BuiltTrial {
+  const base = TRIAL_SHAPE[sectorId] ?? TRIAL_FALLBACK;
+  // IT build work (not a fault) plants a data problem instead of a step that will not reproduce.
+  const shape = sectorId === "it" && brief && !isFaultBrief(brief) ? { ...base, catch_: { en: IT_BUILD_CATCH, bn: IT_BUILD_CATCH_BN } } : base;
+  const proof = TRIAL_PROOF[sectorId] ?? TRIAL_PROOF.admin;
   const minutes = trialSize(task.hours);
+  const plan = planTrial({ brief, hours: task.hours, minutes, what: shape.what.en, catch_: shape.catch_.en, proof: proof.en, note });
+  const toBn = (r: string) => {
+    for (const [re, fn] of REQ_BN) {
+      const m = r.match(re);
+      if (m) return fn(m[1] ?? "");
+    }
+    if (r.toLowerCase() === proof.en.toLowerCase()) return proof.bn;
+    return r;
+  };
+  const core = plan.title.replace(/^\d+-minute trial: /, "");
   return {
-    title: {
-      en: `A ${minutes}-minute version: ${shape.what.en}`,
-      bn: `${minutes} মিনিটের সংস্করণ: ${shape.what.bn}`,
-    },
+    title: { en: plan.title, bn: `${minutes} মিনিটের ট্রায়াল: ${core}` },
     brief: {
-      en: `A sample is attached. Do the same kind of work the real task needs, on a fraction of the volume — ${shape.what.en}. Note how long it took you. Be aware: ${shape.catch_.en}.`,
-      bn: `একটি নমুনা সংযুক্ত। আসল টাস্কে যে ধরনের কাজ লাগে, সামান্য পরিমাণে সেটাই করুন — ${shape.what.bn}। কত সময় লাগল লিখে দিন। মনে রাখবেন: ${shape.catch_.bn}।`,
+      en: plan.brief,
+      bn: `এটি আসল কাজের একটি ছোট কপি — একই ফিচার, অনেক কম পরিমাণে। ${plan.requirements.slice(0, -1).map(toBn).join("; ")}। মনে রাখবেন: ${shape.catch_.bn}। আপনার তৈরি ফাইল আপলোড করুন ও কত সময় লাগল লিখুন — AI প্রতিটি শর্ত ফাইলের সাথে মিলিয়ে দেখে; ${SHORTLIST_BAR}% সম্পূর্ণ হলে মডারেটরের কাছে যায়।`,
     },
     minutes,
-    acceptance: {
-      en: ["Every item in the sample attempted", "Anything unclear flagged rather than guessed", "Time taken recorded honestly"],
-      bn: ["নমুনার প্রতিটি আইটেমে চেষ্টা করা", "অস্পষ্ট যা কিছু, অনুমান না করে চিহ্নিত", "সময় সৎভাবে লেখা"],
-    },
+    acceptance: { en: plan.requirements, bn: plan.requirements.map(toBn) },
     mirrors: {
-      en: `The real task is ${task.hours} hours of this. The trial copies the part that decides the whole job: ${shape.catch_.en}.`,
-      bn: `আসল টাস্ক এর ${task.hours} ঘণ্টা। ট্রায়াল সেই অংশটাই নকল করে যা পুরো কাজের ভাগ্য ঠিক করে: ${shape.catch_.bn}।`,
+      en: plan.mirrors,
+      bn: `আসল টাস্ক প্রায় ${task.hours} ঘণ্টার। ট্রায়াল মূল ফিচারগুলোর ছোট সংস্করণ, সাথে সেই অংশ যা পুরো কাজের ভাগ্য ঠিক করে: ${shape.catch_.bn}।`,
     },
   };
 }

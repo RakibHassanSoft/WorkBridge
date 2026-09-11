@@ -47,14 +47,14 @@ const STEPS: Step[] = [
   {
     icon: UserCheck,
     kicker: { en: "Human gate", bn: "মানবিক গেট" },
-    title: { en: "A coordinator approves or edits before anyone sees it", bn: "কেউ দেখার আগেই একজন কোঅর্ডিনেটর অনুমোদন বা সম্পাদনা করেন" },
+    title: { en: "The client approves the trial; a coordinator picks the student", bn: "ক্লায়েন্ট ট্রায়াল অনুমোদন করেন; কোঅর্ডিনেটর শিক্ষার্থী বেছে নেন" },
     desc: {
-      en: "This gate is not optional and never will be. Until enough real completed projects exist as calibration data, AI output is a draft — a human decides what reaches a student and a client.",
-      bn: "এই গেটটি ঐচ্ছিক নয় এবং কখনো হবে না। ক্যালিব্রেশন ডেটা হিসেবে যথেষ্ট বাস্তব সম্পন্ন প্রজেক্ট না হওয়া পর্যন্ত এআই-এর আউটপুট একটি খসড়া — কোনটা শিক্ষার্থী ও ক্লায়েন্টের কাছে যাবে, তা মানুষই ঠিক করে।",
+      en: "Posting needs no approval — the client checks the AI's small trial and puts it live. The AI then checks every student's trial files requirement by requirement and sends only 90%+ work to a coordinator, who decides who gets the job.",
+      bn: "পোস্ট করতে কোনো অনুমোদন লাগে না — ক্লায়েন্ট এআই-এর ছোট ট্রায়াল দেখে লাইভ করেন। এরপর এআই প্রতিটি শিক্ষার্থীর ট্রায়াল ফাইল শর্ত ধরে ধরে যাচাই করে এবং শুধু ৯০%+ কাজ কোঅর্ডিনেটরের কাছে পাঠায়, যিনি ঠিক করেন কে কাজ পাবে।",
     },
     bullets: {
-      en: ["Every AI scope reviewed before release", "Coordinator can re-split, re-price or reject", "Edits feed back as training signal"],
-      bn: ["প্রকাশের আগে প্রতিটি এআই স্কোপ রিভিউ হয়", "কোঅর্ডিনেটর পুনরায় ভাগ, দাম বা বাতিল করতে পারেন", "সম্পাদনা প্রশিক্ষণ সংকেত হিসেবে ফিরে আসে"],
+      en: ["The client approves or rebuilds the AI's trial", "Only 90%+ trial completion reaches a coordinator", "A person, not the AI, chooses who gets the work"],
+      bn: ["ক্লায়েন্ট এআই-এর ট্রায়াল অনুমোদন বা পুনর্গঠন করেন", "শুধু ৯০%+ সম্পূর্ণ ট্রায়াল কোঅর্ডিনেটরের কাছে যায়", "কে কাজ পাবে তা এআই নয়, মানুষ ঠিক করে"],
     },
     ai: false,
   },

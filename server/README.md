@@ -115,15 +115,22 @@ data access) · `*.controller.ts` (HTTP) · `*.validator.ts` (zod) ·
 
 ### Phase 2 — Client (all require an authenticated `CLIENT`)
 
-- **`POST /client/jobs`** — post a problem. Runs the deterministic AI scope
-  (`modules/ai`), then persists the job, one priced task, its trial, a
-  trial-check (`AWAITING_CLIENT`), and an unfunded payment (`AWAITING`).
-  Returns the job and the fair-price verdict.
+- **`POST /client/jobs`** — post a problem. **Stored at once, no approval
+  step.** The AI scopes it (`modules/ai`) and builds a small trial with the
+  same features as the real task; the job, one priced task, its trial, a
+  trial-check (`AWAITING_CLIENT`) and an unfunded payment (`AWAITING`) are
+  persisted. Returns the job and the fair-price verdict.
 - **`GET /client/jobs`** · **`GET /client/jobs/:id`** — list / detail.
 - **`POST /client/tasks/:taskId/trial-check`** — `{ decision: approve | changes, note? }`.
-  Approving (and funding) puts the task live on the board.
+  **Approve** puts the task live on the task board (`MATCHING`) — the client's
+  approval is the only gate. **Changes** makes the AI rebuild the trial with
+  the note as a new requirement (`trial.revision` + 1) and hands it back
+  (`AWAITING_CLIENT`).
 - **`POST /client/tasks/:taskId/deposit`** — fund the escrow (`AWAITING → HELD`).
-  **Blocked** if the fee is 25%+ under the sector rate floor.
+  **Blocked** if the fee is 25%+ under the sector rate floor. Funding is what
+  lets the moderator assign a student.
+- **`GET /client/jobs`** also returns `trialStats` per task (students who did
+  the trial, and how many the AI shortlisted) — counts only.
 - **`POST /client/tasks/:taskId/signoff`** — `{ decision: accept | revision, note? }`.
   **Accept** releases the escrow (`HELD → RELEASED`), marks the job delivered,
   and credits the selected student **0** points. **Revision** keeps the escrow held.
@@ -142,8 +149,12 @@ data access) · `*.controller.ts` (HTTP) · `*.validator.ts` (zod) ·
 - **`GET /student/tasks`** — browse the live board (only `MATCHING` tasks with an
   approved trial), each flagged with whether you've applied. **`GET /student/tasks/:taskId`** — detail.
 - **`POST /student/tasks/:taskId/apply`** — **apply by doing the trial**: submit
-  `{ summary, minutesTaken }`, the AI scores it (verdict + private coaching).
-  Requires a **verified** account, one attempt per task; **no points yet** — the
+  `{ summary, minutesTaken, attachments }`. The AI judges the uploaded files
+  against **every requirement of the trial** and returns a `checklist`
+  (met / partial / missing + evidence), a `completion` %, a quality `aiScore`,
+  a public verdict and private coaching. **Completion ≥ 90% → `SHORTLISTED`**
+  (sent to the moderator, ranked); below → `NOT_SHORTLISTED`. Requires a
+  **verified** account, one attempt per task; **no points yet** — the
   +1/0/−1 resolves at selection and delivery.
 - **`GET /student/trials`** · **`GET /student/points`** — your attempts and points ledger.
 - **`GET /student/active`** — your assigned task(s).
@@ -157,15 +168,18 @@ data access) · `*.controller.ts` (HTTP) · `*.validator.ts` (zod) ·
 
 The human gate. Every AI decision is a draft until a moderator releases it.
 
-- **Scope review** — `GET /moderator/scopes`,
-  `POST /moderator/scopes/:jobId/approve` (optionally re-price/re-scope),
-  `POST /moderator/scopes/:jobId/reject`. A task goes live only after the scope
-  is released **and** the client has approved the trial **and** funded the escrow.
-- **Select the student** — `GET /moderator/select`,
-  `POST /moderator/tasks/:taskId/select` `{ studentId, reason }`. **This is where
-  points resolve:** the selected student gets **0** (provisional), everyone else
-  who did the trial gets **+1**; the task goes `IN_PROGRESS` and the client↔student
-  chat opens.
+- **New posts (oversight, not approval)** — `GET /moderator/scopes` lists posts
+  whose trial is still with the client. `POST /moderator/scopes/:jobId/approve`
+  `{ fee?, hours? }` corrects the AI's price (only before funding and before
+  anyone applies); `POST /moderator/scopes/:jobId/reject` cancels a post.
+- **Select the student** — `GET /moderator/select` returns only tasks with an
+  **AI shortlist**: attempts at **90%+ completion**, in rank order (completion,
+  then quality, then who finished first), plus `belowBar` (how many were kept
+  back) and `funded`. `POST /moderator/tasks/:taskId/select` `{ studentId, reason }`
+  accepts only a `SHORTLISTED` student and only once the escrow is `HELD`.
+  **This is where points resolve:** the selected student gets **0**
+  (provisional), everyone else who did the trial gets **+1**; the task goes
+  `IN_PROGRESS` and the client↔student chat opens.
 - **Score work** — `GET /moderator/reviews`,
   `POST /moderator/tasks/:taskId/score` `{ scores[], note }` — creates the
   evaluation the client then signs off.
@@ -188,30 +202,53 @@ The human gate. Every AI decision is a draft until a moderator releases it.
 ### The AI layer (`modules/ai/`)
 
 `ai.engine.ts` is a server port of the frontend `src/lib/engine.ts` — the same
-weighted keyword signals, sector rate floors, scale/urgency pricing, trial
-builder, fair-price check, and a deterministic trial-attempt evaluator.
+weighted keyword signals, sector rate floors, scale/urgency pricing and
+fair-price check.
 
-`ai.gemini.ts` calls the **Gemini API** (`GEMINI_API_KEY` + `GEMINI_MODEL`) to
-scope briefs and score trial attempts. `ai.service.ts` uses Gemini when a key is
-set and the call succeeds, and **falls back to the deterministic engine**
-otherwise — so the app works with no key, offline, or if the model errors. The
-**fair-price check is always computed server-side**; the model never decides
-whether a fee clears the floor.
+`ai.judge.ts` (identical copy in `src/lib/judge.ts` for the live demo) is the
+trial builder and the judge:
+
+- **Trial = a small copy of the real task.** It pulls the brief's features
+  ("inventory dashboard", "daily sales report", "800 records"), scales the
+  volume down to trial size ("20 records"), adds the sector's proof of work
+  (README / source file / cited sources…), one planted ambiguity to flag, and
+  "upload the files". That list is the trial's `acceptance` — the checklist.
+- **Judging an upload.** Every requirement is checked against the **files**
+  (the note explains, it is not evidence): key terms and synonyms, the kind of
+  artifact asked for (a CSV with rows, code/HTML, Bangla text, images at two
+  sizes, a source file…), explicit counts ("12 records"), and whether the
+  planted ambiguity was flagged. Integrity checks cap the result whatever else
+  happens: no files (≤ 40%), empty files (≤ 10%), gibberish (≤ 25%), the brief
+  or requirements pasted back (≤ 50%), placeholder text (≤ 70%).
+- **Completion** = met 1 · partial ½ · missing 0, averaged over the
+  requirements. **`SHORTLIST_BAR = 90`**.
+
+`ai.gemini.ts` calls the **Gemini API** (`GEMINI_API_KEY` + `GEMINI_MODEL`,
+default `gemini-3.6-flash`) to scope briefs, rebuild trials and judge attempts
+requirement by requirement — **images and scanned PDFs are sent to the model
+so it can look at them** (the browser adds base64 for those; it is stripped
+before anything is stored). `ai.service.ts` uses Gemini when a key is set and
+the call succeeds, and **falls back to the deterministic judge** otherwise.
+Two things are always computed server-side: the **fair-price check** and the
+**completion %** (from the checklist, with the integrity caps — the model can't
+mark work done when nothing was uploaded).
 
 Set the key in `.env`:
 
 ```
 GEMINI_API_KEY="your-aistudio-key"
-GEMINI_MODEL="gemini-2.0-flash"
+GEMINI_MODEL="gemini-3.6-flash"
 ```
 
 The full schema (jobs, tasks, trials, attempts, points, payments/escrow,
 evaluations, disputes, support, chat, KYC, payment methods) is defined in
 `schema.prisma`, so later phases add modules on a stable data model.
 
-> **After pulling a new phase, re-run `npx prisma db push`** — the schema grew a
-> `PaymentMethod` table (Phase 2), `submissionNote` / `submittedAt` on `Task`
-> (Phase 3), and `scopeApproved` on `Job` (Phase 4).
+> **After pulling, update the database** — `npx prisma migrate deploy` (applies
+> `0002_trial_shortlist`: `TrialAttempt.completion/checklist/aiFlags/aiSource`,
+> `Trial.revision`, and releases every waiting scope) or `npx prisma db push`,
+> then `npx prisma generate`. `0002` uses `ADD COLUMN IF NOT EXISTS`, so it is
+> safe on a database that was built with `db push`.
 
 ## Roadmap
 
@@ -228,10 +265,11 @@ evaluations, disputes, support, chat, KYC, payment methods) is defined in
   support replies, directory (activate/restrict), platform controls.
 
 **All four phases are implemented.** The full loop runs end to end: client posts
-→ AI scopes → moderator releases → client checks trial + funds escrow → task goes
-live → students apply by trial (AI scored) → moderator selects one (+1/0) →
-student delivers → moderator scores → client signs off (escrow released, point 0)
-→ disputes/refunds where needed (−1 on failure).
+(stored, no approval) → AI scopes + builds a same-feature trial → client approves
+it (or the AI rebuilds it) → task goes live → students upload their trial work →
+AI checks every requirement, shortlists 90%+ → client funds escrow → moderator
+selects from the shortlist (+1/0) → student delivers → moderator scores → client
+signs off (escrow released, point 0) → disputes/refunds where needed (−1 on failure).
 
 ## Production
 

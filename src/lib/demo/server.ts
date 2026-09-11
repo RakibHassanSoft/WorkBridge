@@ -5,16 +5,20 @@
  * response shapes and the same flow rules as the server's services, backed by
  * a small seeded dataset kept in sessionStorage. The three demo roles share
  * one dataset, so work moves between them exactly as it would for real:
- *   client posts -> moderator releases scope -> client approves trial + funds
- *   -> student does the trial -> moderator selects -> student delivers
+ *   client posts (stored at once, no approval step) -> AI builds a small
+ *   same-feature trial -> client approves it (or asks for changes and the AI
+ *   rebuilds it) -> task is live on the board -> students upload their trial
+ *   work, the AI judges every requirement and shortlists 90%+ -> client funds
+ *   escrow -> moderator selects from the shortlist -> student delivers
  *   -> moderator scores -> client signs off -> escrow releases.
  * Nothing leaves the browser.
  */
-import { ApiError, type Role } from "../api";
-import { RATE_FLOOR, priceCheck, scopeOne } from "../engine";
+import { ApiError, type Role, type Attachment, type UploadedFile } from "../api";
+import { RATE_FLOOR, priceCheck, scopeOne, buildTrial } from "../engine";
+import { judgeAttempt, rankAttempts, SHORTLIST_BAR, type ChecklistItem } from "../judge";
 import { sectorById } from "@/data/sectors";
 
-const DB_KEY = "wb.demo.db.v1";
+const DB_KEY = "wb.demo.db.v3"; // v3: AI shortlist (completion + checklist), no scope approval
 
 /* ── Records ─────────────────────────────────────────────────── */
 
@@ -26,6 +30,7 @@ type User = {
   email: string;
   role: Role;
   phone: string | null;
+  avatarUrl?: string | null;
   isActive: boolean;
   createdAt: string;
   studentProfile?: StudentProfile;
@@ -47,13 +52,14 @@ type Task = {
   assigneeId: string | null;
   progress: number;
   submissionNote: string | null;
+  submissionFiles?: Attachment[] | null;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  trial: { title: string; brief: string; minutes: number; mirrors: string; acceptance: string[] };
+  trial: { title: string; brief: string; minutes: number; mirrors: string; acceptance: string[]; revision?: number; aiNote?: string | null };
   trialCheck: { status: string; clientNote?: string };
   payment: { id: string; amount: number; status: string; note: string; method: string | null; clientId: string; createdAt: string; updatedAt: string };
-  evaluation: { id: string; reviewerId: string; scores: Score[]; reviewerNote: string; clientSignoff: boolean; clientNote: string | null } | null;
+  evaluation: { id: string; taskId: string; studentId: string | null; reviewerId: string; scores: Score[]; reviewerNote: string; clientSignoff: boolean; clientNote: string | null } | null;
 };
 type Job = {
   id: string;
@@ -72,6 +78,7 @@ type Job = {
   aiSuggestedFee: number;
   aiRisks: string[];
   aiSkills: string[];
+  attachments?: Attachment[] | null;
   createdAt: string;
 };
 type Attempt = {
@@ -80,7 +87,12 @@ type Attempt = {
   studentId: string;
   summary: string;
   minutesTaken: number;
+  attachments?: Attachment[];
   aiScore: number;
+  completion: number;
+  checklist: ChecklistItem[];
+  aiFlags: string[];
+  aiSource: string;
   aiVerdict: string;
   aiCoaching: string;
   outcome: string;
@@ -154,14 +166,17 @@ function seed(): DB {
     assigneeId?: string;
     progress?: number;
     submissionNote?: string;
+    submissionFiles?: Attachment[];
+    attachments?: Attachment[];
   }) => {
-    const created = buildJob(db, o.clientId, o.brief, { sectorId: o.sectorId }, at());
+    const created = buildJob(db, o.clientId, o.brief, { sectorId: o.sectorId, attachments: o.attachments }, at());
     Object.assign(created.job, { status: o.jobStatus, scopeApproved: o.scopeApproved });
     Object.assign(created.task, {
       status: o.taskStatus,
       assigneeId: o.assigneeId ?? null,
       progress: o.progress ?? 0,
       submissionNote: o.submissionNote ?? null,
+      submissionFiles: o.submissionFiles ?? null,
       submittedAt: o.submissionNote ? at() : null,
     });
     created.task.trialCheck.status = o.trialCheck;
@@ -169,27 +184,49 @@ function seed(): DB {
     created.task.payment.note = payNote(o.pay);
     return created.task;
   };
-  const attempt = (taskId: string, studentId: string, aiScore: number, outcome: string, points: number) =>
+  // Every seeded attempt is judged by the same AI judge the API uses, so its
+  // completion %, checklist and shortlist status are real. `outcome` overrides
+  // the judge only for rounds that are already decided.
+  const attempt = (
+    taskId: string,
+    studentId: string,
+    outcome: string,
+    points: number,
+    attachments: Attachment[],
+    summary = "Did the trial on the sample and flagged the unclear item rather than guessing.",
+    minutesTaken = 35
+  ) => {
+    const t = db.tasks.find((x) => x.id === taskId)!;
+    const ev = judgeAttempt({ trialTitle: t.trial.title, trialBrief: t.trial.brief, requirements: t.trial.acceptance, trialMinutes: t.trial.minutes, summary, minutesTaken, attachments, taskAcceptance: t.acceptance });
+    const finalOutcome = outcome === "JUDGE" ? (ev.shortlisted ? "SHORTLISTED" : "NOT_SHORTLISTED") : outcome;
     db.attempts.push({
       id: id("a"),
       taskId,
       studentId,
-      summary: "Did the trial and flagged the unclear item rather than guessing.",
-      minutesTaken: 35,
-      aiScore,
-      aiVerdict: `Solid attempt — scored ${aiScore}/100 for judgement and completeness.`,
-      aiCoaching: "Keep stating assumptions explicitly.",
-      outcome,
+      attachments,
+      summary,
+      minutesTaken,
+      aiScore: ev.score,
+      completion: ev.completion,
+      checklist: ev.checklist,
+      aiFlags: ev.flags,
+      aiSource: ev.source,
+      aiVerdict: ev.verdict,
+      aiCoaching: ev.coaching,
+      outcome: finalOutcome,
       points,
-      pointsReason: outcome === "PENDING" ? null : points === 1 ? "Did the trial, was not selected — +1" : "Selected — 0",
-      rank: outcome === "SELECTED" ? 1 : null,
+      pointsReason: outcome === "JUDGE" ? null : points === 1 ? "Did the trial, was not selected — +1" : "Selected — 0",
+      rank: finalOutcome === "SELECTED" ? 1 : null,
       submittedAt: at(),
     });
+  };
   const point = (studentId: string, taskId: string, delta: number, reason: string) =>
     db.points.push({ id: id("p"), studentId, taskId, delta, reason, createdAt: at() });
   const evaluate = (task: Task, scores: number[], reviewerNote: string, signed: boolean, clientNote: string | null) => {
     task.evaluation = {
       id: id("e"),
+      taskId: task.id,
+      studentId: task.assigneeId,
       reviewerId: "m1",
       scores: ["Quality", "Completeness", "Communication"].map((dim, i) => ({ dim, score: scores[i], max: 5 })),
       reviewerNote,
@@ -199,17 +236,17 @@ function seed(): DB {
   };
 
   // J1 — delivered (c1, s1)
-  const j1 = job({ clientId: "c1", sectorId: "it", brief: "The checkout payment on our website keeps failing at the last step for customers.", jobStatus: "DELIVERED", taskStatus: "APPROVED", scopeApproved: true, trialCheck: "APPROVED", pay: "RELEASED", assigneeId: "s1", progress: 100, submissionNote: "Fixed the gateway callback; documented repro steps." });
-  attempt(j1.id, "s1", 88, "SELECTED", 0);
-  attempt(j1.id, "s2", 74, "NOT_SHORTLISTED", 1);
+  const j1 = job({ clientId: "c1", sectorId: "it", brief: "The checkout payment on our website keeps failing at the last step for customers.", jobStatus: "DELIVERED", taskStatus: "APPROVED", scopeApproved: true, trialCheck: "APPROVED", pay: "RELEASED", assigneeId: "s1", progress: 100, submissionNote: "Fixed the gateway callback; documented repro steps.", submissionFiles: subAtt("it") });
+  attempt(j1.id, "s1", "SELECTED", 0, trialAtt("it"));
+  attempt(j1.id, "s2", "NOT_SHORTLISTED", 1, trialAtt("it"));
   point("s1", j1.id, 0, "Selected and delivered the main task — 0");
   point("s2", j1.id, 1, "Did the trial, was not selected — +1");
   evaluate(j1, [5, 4, 4], "Clean fix, well documented.", true, "Works perfectly, thank you.");
 
   // J2 — in progress (c1, s1)
   const j2 = job({ clientId: "c1", sectorId: "it", brief: "Build an inventory dashboard showing stock levels and a daily sales report.", jobStatus: "ACTIVE", taskStatus: "IN_PROGRESS", scopeApproved: true, trialCheck: "APPROVED", pay: "HELD", assigneeId: "s1", progress: 45 });
-  attempt(j2.id, "s1", 85, "SELECTED", 0);
-  attempt(j2.id, "s3", 70, "NOT_SHORTLISTED", 1);
+  attempt(j2.id, "s1", "SELECTED", 0, trialAtt("it"));
+  attempt(j2.id, "s3", "NOT_SHORTLISTED", 1, trialAtt("it"));
   point("s1", j2.id, 0, "Selected — main task in progress");
   point("s3", j2.id, 1, "Did the trial, was not selected — +1");
   db.messages.push(
@@ -218,45 +255,48 @@ function seed(): DB {
   );
 
   // J3 — delivered, awaiting moderator scoring (c2, s2)
-  const j3 = job({ clientId: "c2", sectorId: "biz", brief: "Reconcile last quarter's invoices and VAT against the bank statement.", jobStatus: "REVIEW", taskStatus: "IN_REVIEW", scopeApproved: true, trialCheck: "APPROVED", pay: "HELD", assigneeId: "s2", progress: 100, submissionNote: "Reconciled; two entries flagged as exceptions with notes." });
-  attempt(j3.id, "s2", 90, "SELECTED", 0);
-  attempt(j3.id, "s1", 68, "NOT_SHORTLISTED", 1);
+  const j3 = job({ clientId: "c2", sectorId: "biz", brief: "Reconcile last quarter's invoices and VAT against the bank statement.", jobStatus: "REVIEW", taskStatus: "IN_REVIEW", scopeApproved: true, trialCheck: "APPROVED", pay: "HELD", assigneeId: "s2", progress: 100, submissionNote: "Reconciled; two entries flagged as exceptions with notes.", submissionFiles: subAtt("biz") });
+  attempt(j3.id, "s2", "SELECTED", 0, trialAtt("biz"));
+  attempt(j3.id, "s1", "NOT_SHORTLISTED", 1, trialAtt("biz"));
   point("s2", j3.id, 0, "Selected — main task in progress");
   point("s1", j3.id, 1, "Did the trial, was not selected — +1");
 
   // J4 — live with applicants awaiting selection (c1)
   const j4 = job({ clientId: "c1", sectorId: "design", brief: "Redesign our product packaging label in two sizes, prices in a separate layer.", jobStatus: "MATCHING", taskStatus: "MATCHING", scopeApproved: true, trialCheck: "APPROVED", pay: "HELD" });
-  attempt(j4.id, "s3", 82, "PENDING", 0);
-  attempt(j4.id, "s1", 76, "PENDING", 0);
+  // Judged by the AI: s3 and s1 clear the 90% bar (ranked), s2 does not.
+  attempt(j4.id, "s3", "JUDGE", 0, trialAtt("design-strong"), "Redesigned the label at two sizes (A6, A7) from one editable source; prices in their own layer; flagged the price mismatch.", 40);
+  attempt(j4.id, "s1", "JUDGE", 0, trialAtt("design-good"), "Label at two sizes, prices on a separate layer, exported from the Figma source.", 50);
+  attempt(j4.id, "s2", "JUDGE", 0, trialAtt("design-weak"), "Made a new label.", 20);
+  rerank(db, j4.id);
 
   // J5 — awaiting moderator scope review (c2)
-  job({ clientId: "c2", sectorId: "mkt", brief: "Run a two-week social media campaign for our new menu across Facebook and Instagram.", jobStatus: "SCOPING", taskStatus: "OPEN", scopeApproved: false, trialCheck: "AWAITING_CLIENT", pay: "AWAITING" });
+  job({ clientId: "c2", sectorId: "mkt", brief: "Run a two-week social media campaign for our new menu across Facebook and Instagram.", jobStatus: "SCOPING", taskStatus: "OPEN", scopeApproved: true, trialCheck: "AWAITING_CLIENT", pay: "AWAITING", attachments: [fileAtt("new-menu.csv", "text/csv", "item,price\nChicken Chaap,320\nBeef Tehari,260\nBorhani,60"), fileAtt("brand-notes.md", "text/markdown", "Tone: warm, local, a little playful. Post times: 1pm and 8pm. Avoid stock photos.")] });
 
   // J6 — live on the board, no applicants yet (c1)
   job({ clientId: "c1", sectorId: "content", brief: "Write ten product descriptions in our brand voice and translate them to Bangla.", jobStatus: "MATCHING", taskStatus: "MATCHING", scopeApproved: true, trialCheck: "APPROVED", pay: "HELD" });
 
   // J7 — delivered but disputed by the client (c2, s3)
-  const j7 = job({ clientId: "c2", sectorId: "admin", brief: "Enter 800 paper records into a spreadsheet with the agreed columns.", jobStatus: "REVIEW", taskStatus: "IN_REVIEW", scopeApproved: true, trialCheck: "APPROVED", pay: "HELD", assigneeId: "s3", progress: 100, submissionNote: "Entered; some records were illegible." });
-  attempt(j7.id, "s3", 72, "SELECTED", 0);
+  const j7 = job({ clientId: "c2", sectorId: "admin", brief: "Enter 800 paper records into a spreadsheet with the agreed columns.", jobStatus: "REVIEW", taskStatus: "IN_REVIEW", scopeApproved: true, trialCheck: "APPROVED", pay: "HELD", assigneeId: "s3", progress: 100, submissionNote: "Entered; some records were illegible.", submissionFiles: subAtt("admin") });
+  attempt(j7.id, "s3", "SELECTED", 0, trialAtt("admin"));
   point("s3", j7.id, 0, "Selected — main task in progress");
   db.disputes.push({ id: id("d"), ref: `DSP-${db.seq}`, taskId: j7.id, raisedById: "c2", raisedByRole: "CLIENT", status: "OPEN", amount: j7.fee, claim: "Several records are missing and some are wrong.", evidence: ["Screenshot of missing rows", "Sample of incorrect entries"], outcome: null, resolution: null, createdAt: at() });
 
   // J8 — delivered (c3, s2)
-  const j8 = job({ clientId: "c3", sectorId: "agri", brief: "Run a field survey of 200 farmers and write two findings from the crop data.", jobStatus: "DELIVERED", taskStatus: "APPROVED", scopeApproved: true, trialCheck: "APPROVED", pay: "RELEASED", assigneeId: "s2", progress: 100, submissionNote: "Survey done; two findings with sourced evidence." });
-  attempt(j8.id, "s2", 80, "SELECTED", 0);
+  const j8 = job({ clientId: "c3", sectorId: "agri", brief: "Run a field survey of 200 farmers and write two findings from the crop data.", jobStatus: "DELIVERED", taskStatus: "APPROVED", scopeApproved: true, trialCheck: "APPROVED", pay: "RELEASED", assigneeId: "s2", progress: 100, submissionNote: "Survey done; two findings with sourced evidence.", submissionFiles: subAtt("agri") });
+  attempt(j8.id, "s2", "SELECTED", 0, trialAtt("agri"));
   point("s2", j8.id, 0, "Selected and delivered the main task — 0");
   evaluate(j8, [4, 4, 4], "Well sourced.", true, "Great work.");
 
   // J9 — awaiting moderator scope review (c3)
-  job({ clientId: "c3", sectorId: "admin", brief: "Digitise 500 paper delivery slips into a clean spreadsheet with agreed columns.", jobStatus: "SCOPING", taskStatus: "OPEN", scopeApproved: false, trialCheck: "AWAITING_CLIENT", pay: "AWAITING" });
+  job({ clientId: "c3", sectorId: "admin", brief: "Digitise 500 paper delivery slips into a clean spreadsheet with agreed columns.", jobStatus: "SCOPING", taskStatus: "OPEN", scopeApproved: true, trialCheck: "AWAITING_CLIENT", pay: "AWAITING", attachments: [fileAtt("slip-sample.md", "text/markdown", "Each slip has: date, route, driver, crates out, crates returned, signature. Some handwriting is faint.")] });
 
   // J10 — just posted by the demo client: trial to check and escrow to fund (c1)
-  job({ clientId: "c1", sectorId: "design", brief: "Photograph our 30 packaging SKUs on a white background with consistent lighting for the website.", jobStatus: "SCOPING", taskStatus: "OPEN", scopeApproved: false, trialCheck: "AWAITING_CLIENT", pay: "AWAITING" });
+  job({ clientId: "c1", sectorId: "design", brief: "Photograph our 30 packaging SKUs on a white background with consistent lighting for the website.", jobStatus: "SCOPING", taskStatus: "OPEN", scopeApproved: true, trialCheck: "AWAITING_CLIENT", pay: "AWAITING" });
 
   // J11 — scored by a moderator, waiting for the demo client's sign-off (c1, s3)
-  const j11 = job({ clientId: "c1", sectorId: "content", brief: "Translate our 12-page investor brief into Bangla, keeping the figures and the tone.", jobStatus: "REVIEW", taskStatus: "IN_REVIEW", scopeApproved: true, trialCheck: "APPROVED", pay: "HELD", assigneeId: "s3", progress: 100, submissionNote: "Full Bangla translation attached; two figures in the source did not add up and are flagged in comments." });
-  attempt(j11.id, "s3", 84, "SELECTED", 0);
-  attempt(j11.id, "s1", 71, "NOT_SHORTLISTED", 1);
+  const j11 = job({ clientId: "c1", sectorId: "content", brief: "Translate our 12-page investor brief into Bangla, keeping the figures and the tone.", jobStatus: "REVIEW", taskStatus: "IN_REVIEW", scopeApproved: true, trialCheck: "APPROVED", pay: "HELD", assigneeId: "s3", progress: 100, submissionNote: "Full Bangla translation attached; two figures in the source did not add up and are flagged in comments.", submissionFiles: subAtt("content") });
+  attempt(j11.id, "s3", "SELECTED", 0, trialAtt("content"));
+  attempt(j11.id, "s1", "NOT_SHORTLISTED", 1, trialAtt("content"));
   point("s3", j11.id, 0, "Selected — main task in progress");
   point("s1", j11.id, 1, "Did the trial, was not selected — +1");
   evaluate(j11, [4, 5, 4], "Faithful translation; flagged the inconsistent figures instead of correcting them silently.", false, null);
@@ -287,8 +327,10 @@ function payNote(status: string) {
 }
 
 /** Run the scoping engine on a brief and store the job + its single task, as the server does. */
-function buildJob(db: DB, clientId: string, brief: string, opts: { sectorId?: string; budget?: number; title?: string }, createdAt: string) {
-  const s = scopeOne(brief, { sectorId: opts.sectorId });
+function buildJob(db: DB, clientId: string, brief: string, opts: { sectorId?: string; budget?: number; title?: string; attachments?: Attachment[] }, createdAt: string) {
+  const attText = summarizeAtt(opts.attachments).text;
+  const briefForScope = attText ? `${brief}\n\n--- Attached documents ---\n${attText}` : brief;
+  const s = scopeOne(briefForScope, { sectorId: opts.sectorId });
   const fee = opts.budget && opts.budget > 0 ? opts.budget : s.task.fee;
   const next = (p: string) => `${p}${++db.seq}`;
   const job: Job = {
@@ -299,8 +341,9 @@ function buildJob(db: DB, clientId: string, brief: string, opts: { sectorId?: st
     brief,
     sectorId: s.sectorId,
     budget: fee,
+    // Stored at once — no approval step. SCOPING = the AI's trial awaits the client's check.
     status: "SCOPING",
-    scopeApproved: false,
+    scopeApproved: true,
     aiSummary: s.summary.en,
     aiComplexity: s.complexity,
     aiConfidence: s.confidence,
@@ -308,6 +351,7 @@ function buildJob(db: DB, clientId: string, brief: string, opts: { sectorId?: st
     aiSuggestedFee: s.task.fee,
     aiRisks: s.risks.map((r) => r.en),
     aiSkills: s.task.skills,
+    attachments: stripBinary(opts.attachments) ?? null,
     createdAt,
   };
   const task: Task = {
@@ -328,7 +372,7 @@ function buildJob(db: DB, clientId: string, brief: string, opts: { sectorId?: st
     submittedAt: null,
     createdAt,
     updatedAt: createdAt,
-    trial: { title: s.trial.title.en, brief: s.trial.brief.en, minutes: s.trial.minutes, mirrors: s.trial.mirrors.en, acceptance: s.trial.acceptance.en },
+    trial: { title: s.trial.title.en, brief: s.trial.brief.en, minutes: s.trial.minutes, mirrors: s.trial.mirrors.en, acceptance: s.trial.acceptance.en, revision: 1, aiNote: null },
     trialCheck: { status: "AWAITING_CLIENT" },
     payment: { id: next("pay"), amount: fee, status: "AWAITING", note: "Awaiting deposit", method: null, clientId, createdAt, updatedAt: createdAt },
     evaluation: null,
@@ -402,39 +446,99 @@ function touch(task: Task) {
   task.updatedAt = now();
 }
 
-/** A task goes live on the board only once the scope is released, the trial approved and the escrow funded. */
+/**
+ * Posting needs no approval: a task goes live on the board as soon as the
+ * client approves the AI's trial. Escrow gates SELECTION, not going live.
+ */
 function maybeActivate(db: DB, task: Task) {
   const job = jobOf(db, task);
-  if (task.status === "OPEN" && job.scopeApproved && task.trialCheck.status === "APPROVED" && task.payment.status === "HELD") {
+  if (task.status === "OPEN" && job.status !== "CANCELLED" && task.trialCheck.status === "APPROVED") {
     task.status = "MATCHING";
     job.status = "MATCHING";
     touch(task);
   }
 }
 
-/** The deterministic trial scorer — the same rubric the server falls back to. */
-function evaluateAttempt(summary: string, minutesTaken: number, trialMinutes: number) {
-  const words = summary.split(/\s+/).filter(Boolean).length;
-  const flags = /\b(flag|ask|unclear|unsure|cannot|could not|missing|assum|confirm|clarif|guess)/i.test(summary);
-  const completeness = Math.max(1, Math.min(5, Math.round(words / 20)));
-  const judgement = flags ? 5 : 2;
-  const communication = Math.max(1, Math.min(5, Math.round(words / 30) + 2));
-  const timeliness = minutesTaken <= trialMinutes ? 5 : minutesTaken <= trialMinutes * 1.5 ? 3 : 2;
-  const score = Math.round(((completeness + judgement + communication + timeliness) / 20) * 100);
-  return {
-    score,
-    verdict: flags
-      ? "Did the work and flagged the ambiguity rather than guessing — the behaviour the trial is built to find."
-      : "Completed the work but did not flag the deliberate ambiguity; the trial rewards asking over assuming.",
-    coaching: flags
-      ? "Strong instinct to surface what the brief left unclear. Keep quantifying your time and stating assumptions explicitly."
-      : "Next time, call out the item that does not add up instead of choosing for the client — that judgement is what selection turns on.",
-  };
+/* ── Uploaded deliverables (metadata + extracted text) ─────────── */
+// The SAME builders and scoring the server seed and engine use, so demo and
+// real judge an upload identically.
+const uf = (name: string, mime: string, content: string): UploadedFile => ({ name, mime, size: content.length, content });
+const fileAtt = (name: string, mime: string, content: string): Attachment => ({ kind: "file", name, files: [uf(name, mime, content)] });
+const folderAtt = (name: string, files: UploadedFile[]): Attachment => ({ kind: "folder", name, files });
+const trialAtt = (sector: string): Attachment[] => {
+  switch (sector) {
+    case "it": return [folderAtt("trial-checkout", [uf("repro.md", "text/markdown", "# Repro\n1. Add item to cart\n2. Go to checkout\n3. Pay — fails at the callback.\nStep 3 would not reproduce on staging, so I flagged it rather than inventing a cause."), uf("callback.patch.txt", "text/plain", "- res.redirect(cb)\n+ if (!verifySignature(req)) return res.status(400);\n+ res.redirect(cb);")])];
+    case "biz": return [fileAtt("reconcile-week1.csv", "text/csv", "date,ref,amount,matched\n01-03,INV-88,12000,yes\n02-03,INV-89,8400,no\n03-03,INV-90,5100,no\n# 2 entries would not reconcile — listed as exceptions, not forced.")];
+    case "admin": return [fileAtt("records-12.csv", "text/csv", "id,name,phone\n1,Rahim,017xxxxxxxx\n2,Karim,\n3,[illegible],018xxxxxxxx\n# rows 2 and 3 unclear — flagged, not guessed.")];
+    case "design": return [fileAtt("label-two-sizes.md", "text/markdown", "Laid the label out at two sizes. Prices kept in a SEPARATE editable layer — need the final price list confirmed before export.")];
+    // J4's live round: two strong attempts (AI-shortlisted, ranked) and one below the bar.
+    case "design-strong": return [folderAtt("label-redesign", [
+      { name: "label-redesign/label-a6.png", mime: "image/png", size: 248000, content: null },
+      { name: "label-redesign/label-a7.png", mime: "image/png", size: 176000, content: null },
+      uf("label-redesign/label-source.svg", "image/svg+xml", "<svg xmlns='http://www.w3.org/2000/svg' width='105mm' height='148mm'>\n<g id='artwork'><text>Nokshi Threads — hand-embroidered cushion cover</text></g>\n<g id='prices' data-editable='true'><text id='price'>৳1,450</text></g>\n</svg>"),
+      uf("label-redesign/NOTES.md", "text/markdown", "# Packaging label redesign\nTwo sizes exported: A6 (105x148mm) and A7 (74x105mm), both from the same editable source file.\nPrices sit in their own layer (`prices`) so they can change without touching the artwork.\n## Flagged\nThe current price list has two prices for the cushion cover (৳1,450 on the tag, ৳1,500 on the site) — I left the layer editable and need the client to confirm which is right instead of guessing."),
+    ])];
+    case "design-good": return [folderAtt("label-v1", [
+      { name: "label-v1/label-large.png", mime: "image/png", size: 210000, content: null },
+      { name: "label-v1/label-small.png", mime: "image/png", size: 150000, content: null },
+      { name: "label-v1/label.fig", mime: "application/octet-stream", size: 820000, content: null },
+      uf("label-v1/readme.txt", "text/plain", "Packaging label redesigned at two sizes (large and small), exported as PNG from the editable Figma source.\nThe prices are in a separate layer named Prices so they stay editable.\nQuestion: which font should the brand name use? I kept the old one for now."),
+    ])];
+    case "design-weak": return [{ kind: "file", name: "label.png", files: [{ name: "label.png", mime: "image/png", size: 0, content: null }] }];
+    case "content": return [fileAtt("entries.md", "text/markdown", "Three product descriptions in the site's voice.\nNote: item 2's name differs between the tag and the site — asking rather than choosing.")];
+    case "agri": return [fileAtt("findings.md", "text/markdown", "Two findings from one season of the sample. Evidence is thin for finding 2, so I stated where I am unsure.")];
+    default: return [fileAtt("trial-notes.md", "text/markdown", "Did the sample and flagged the one item that did not add up instead of guessing.")];
+  }
+};
+const subAtt = (sector: string): Attachment[] => {
+  switch (sector) {
+    case "it": return [folderAtt("checkout-fix", [uf("gateway-callback.js", "text/javascript", "// verify the gateway signature before redirecting the customer\nexport function handleCallback(req, res) { /* ... */ }"), uf("REPRO.md", "text/markdown", "Steps to reproduce the original failure and how the fix resolves it."), uf("before-after.log", "text/plain", "before: HTTP 500 at /callback\nafter: HTTP 200 OK, order marked paid")])];
+    case "biz": return [folderAtt("reconciliation", [uf("reconciliation.csv", "text/csv", "date,ref,amount,matched\n... full quarter reconciled ..."), uf("exceptions.md", "text/markdown", "Two entries flagged as exceptions with a note on why each could not be matched.")])];
+    case "admin": return [fileAtt("records-800.csv", "text/csv", "id,name,phone,address\n... 800 rows into the agreed columns ...\n# illegible source records flagged, not guessed.")];
+    case "agri": return [folderAtt("field-survey", [uf("survey-200.csv", "text/csv", "farmer,upazila,crop,yield\n... 200 responses ..."), uf("findings.md", "text/markdown", "Two findings, each sourced to the sample rows that support it.")])];
+    case "content": return [folderAtt("bangla-translation", [uf("investor-brief-bn.md", "text/markdown", "Full Bangla translation, figures and tone preserved."), uf("flagged-figures.md", "text/markdown", "Two figures in the source did not add up — flagged, not silently corrected.")])];
+    default: return [fileAtt("deliverable.md", "text/markdown", "Work delivered as agreed against the acceptance criteria.")];
+  }
+};
+
+function summarizeAtt(atts?: Attachment[] | null) {
+  const list = Array.isArray(atts) ? atts : [];
+  let text = "";
+  for (const a of list) for (const f of a.files ?? []) if (f.content && text.length < 20000) text += (text ? "\n\n" : "") + f.content;
+  return { text: text.slice(0, 20000) };
+}
+
+/** The base64 image/PDF data is for the AI judge only — never stored. */
+function stripBinary(atts?: Attachment[] | null): Attachment[] | undefined {
+  if (!Array.isArray(atts)) return undefined;
+  return atts.map((a) => ({ kind: a.kind, name: a.name, files: (a.files ?? []).map((f) => ({ name: f.name, mime: f.mime, size: f.size, content: f.content ?? null })) }));
+}
+
+/** Re-rank a task's AI shortlist (completion, then quality, then who finished first). */
+function rerank(db: DB, taskId: string) {
+  const list = rankAttempts(db.attempts.filter((x) => x.taskId === taskId && x.outcome === "SHORTLISTED"));
+  list.forEach((x, i) => (x.rank = i + 1));
 }
 
 /* ── Views (same shapes as the server's Prisma includes) ─────── */
 
-const taskFull = (db: DB, t: Task) => ({ ...t, sector: sector(t.sectorId), assignee: mini(db, t.assigneeId) });
+const taskFull = (db: DB, t: Task) => ({
+  ...t,
+  // Counts only — who applied stays with the moderator until one is selected.
+  trialStats: {
+    applicants: db.attempts.filter((a) => a.taskId === t.id).length,
+    shortlisted: db.attempts.filter((a) => a.taskId === t.id && (a.outcome === "SHORTLISTED" || a.outcome === "SELECTED")).length,
+  },
+  sector: sector(t.sectorId),
+  assignee: mini(db, t.assigneeId),
+  // Matches the server's jobDetailInclude: only the SELECTED attempt, with a {id,name} student.
+  attempts: db.attempts
+    .filter((a) => a.taskId === t.id && a.outcome === "SELECTED")
+    .map((a) => {
+      const s = db.users.find((u) => u.id === a.studentId);
+      return { ...a, student: s ? { id: s.id, name: s.name } : null };
+    }),
+});
 const jobFull = (db: DB, j: Job) => ({
   ...j,
   sector: sector(j.sectorId),
@@ -475,7 +579,12 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
 
   if (is("GET", "users", "me")) {
     const u = db.users.find((x) => x.id === me)!;
-    return { id: u.id, email: u.email, role: u.role, name: u.name, phone: u.phone };
+    return { id: u.id, email: u.email, role: u.role, name: u.name, phone: u.phone, avatarUrl: u.avatarUrl ?? null };
+  }
+  if (is("PATCH", "users", "me", "avatar")) {
+    const u = db.users.find((x) => x.id === me)!;
+    u.avatarUrl = String(b.avatarUrl ?? "");
+    return { id: u.id, email: u.email, role: u.role, name: u.name, phone: u.phone, avatarUrl: u.avatarUrl };
   }
   if (area === "auth") fail(400, "You are in the live demo — exit the demo to sign in or register.");
 
@@ -494,7 +603,8 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
     if (is("POST", "client", "jobs")) {
       const brief = String(b.brief ?? "").trim();
       if (brief.length < 10) fail(400, "Describe the problem in at least a sentence");
-      const { job, price } = buildJob(db, me, brief, { budget: Number(b.budget) || undefined, title: b.title }, now());
+      const attachments = Array.isArray(b.attachments) ? (b.attachments as Attachment[]) : undefined;
+      const { job, price } = buildJob(db, me, brief, { budget: Number(b.budget) || undefined, title: b.title, attachments }, now());
       return { job: jobFull(db, job), price: { ...price, message: price.message.en } };
     }
     if (is("GET", "client", "jobs")) return db.jobs.filter((j) => j.clientId === me).sort(byNewest).map((j) => jobFull(db, j));
@@ -506,14 +616,31 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
     if (is("POST", "client", "tasks", null, "trial-check")) {
       const t = owned(a2);
       if (t.trialCheck.status === "APPROVED") fail(409, "The trial has already been approved");
+      if (t.status === "CANCELLED") fail(409, "This task was cancelled");
       if (b.decision === "approve") {
         t.trialCheck = { status: "APPROVED" };
-        maybeActivate(db, t);
-      } else {
-        t.trialCheck = { status: "CHANGES_ASKED", clientNote: b.note };
+        maybeActivate(db, t); // the client's approval alone puts it live on the board
+        touch(t);
+        return { ...t.trialCheck, live: true };
       }
+      const note = String(b.note ?? "").trim();
+      if (note.length < 3) fail(400, "Say what the trial should test instead");
+      // The AI rebuilds the trial with the note as a requirement, then hands it back.
+      const j = jobOf(db, t);
+      const docs = summarizeAtt(j.attachments).text;
+      const rebuilt = buildTrial({ hours: t.hours } as Parameters<typeof buildTrial>[0], t.sectorId, docs ? `${j.brief}\n\n--- Attached documents ---\n${docs}` : j.brief, note);
+      t.trial = {
+        title: rebuilt.title.en,
+        brief: rebuilt.brief.en,
+        minutes: rebuilt.minutes,
+        mirrors: rebuilt.mirrors.en,
+        acceptance: rebuilt.acceptance.en,
+        revision: (t.trial.revision ?? 1) + 1,
+        aiNote: `Rebuilt from the client's note: ${note}`,
+      };
+      t.trialCheck = { status: "AWAITING_CLIENT", clientNote: note };
       touch(t);
-      return t.trialCheck;
+      return { ...t.trialCheck, trial: t.trial, rebuilt: true };
     }
     if (is("POST", "client", "tasks", null, "deposit")) {
       const t = owned(a2);
@@ -522,7 +649,6 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
       if (price.level === "blocked") fail(400, `Cannot fund an underpriced task. ${price.message.en}`);
       const pm = db.methods.find((m) => m.id === b.paymentMethodId && m.clientId === me);
       Object.assign(t.payment, { status: "HELD", method: pm?.label ?? "Escrow deposit", note: "Held in escrow until sign-off", updatedAt: now() });
-      maybeActivate(db, t);
       touch(t);
       return { payment: t.payment, fairPrice: { ...price, message: price.message.en } };
     }
@@ -604,11 +730,34 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
       if (db.attempts.some((x) => x.taskId === t.id && x.studentId === me)) fail(409, "You have already applied to this task");
       const summary = String(b.summary ?? "");
       const minutesTaken = Number(b.minutesTaken) || t.trial.minutes;
-      const ev = evaluateAttempt(summary, minutesTaken, t.trial.minutes);
-      const at: Attempt = { id: `a${++db.seq}`, taskId: t.id, studentId: me, summary, minutesTaken, aiScore: ev.score, aiVerdict: ev.verdict, aiCoaching: ev.coaching, outcome: "PENDING", points: 0, pointsReason: null, rank: null, submittedAt: now() };
+      const attachments = Array.isArray(b.attachments) ? (b.attachments as Attachment[]) : undefined;
+      // The AI judges the upload against every requirement of the TRIAL.
+      const peers = db.attempts.filter((x) => x.taskId === t.id).map((x) => summarizeAtt(x.attachments).text).filter(Boolean);
+      const ev = judgeAttempt({ trialTitle: t.trial.title, trialBrief: t.trial.brief, requirements: t.trial.acceptance, trialMinutes: t.trial.minutes, summary, minutesTaken, attachments, taskAcceptance: t.acceptance, peers });
+      const at: Attempt = {
+        id: `a${++db.seq}`,
+        taskId: t.id,
+        studentId: me,
+        summary,
+        minutesTaken,
+        attachments: stripBinary(attachments),
+        aiScore: ev.score,
+        completion: ev.completion,
+        checklist: ev.checklist,
+        aiFlags: ev.flags,
+        aiSource: ev.source,
+        aiVerdict: ev.verdict,
+        aiCoaching: ev.coaching,
+        outcome: ev.shortlisted ? "SHORTLISTED" : "NOT_SHORTLISTED",
+        points: 0,
+        pointsReason: null,
+        rank: null,
+        submittedAt: now(),
+      };
       db.attempts.push(at);
+      rerank(db, t.id);
       touch(t);
-      return at;
+      return { ...at, rank: at.rank ?? 0, shortlisted: ev.shortlisted, bar: SHORTLIST_BAR, breakdown: ev.breakdown };
     }
     if (is("GET", "student", "trials"))
       return db.attempts
@@ -636,7 +785,7 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
     if (is("POST", "student", "tasks", null, "submit")) {
       const t = assigned(a2);
       if (t.status !== "IN_PROGRESS" && t.status !== "REVISION") fail(400, "This task is not in a state you can submit");
-      Object.assign(t, { status: "IN_REVIEW", progress: 100, submissionNote: String(b.note ?? ""), submittedAt: now() });
+      Object.assign(t, { status: "IN_REVIEW", progress: 100, submissionNote: String(b.note ?? ""), submissionFiles: Array.isArray(b.files) ? stripBinary(b.files as Attachment[]) : t.submissionFiles ?? null, submittedAt: now() });
       touch(t);
       return t;
     }
@@ -661,16 +810,26 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
   /* Moderator */
   if (area === "moderator") {
     need("MODERATOR");
+    // Posted problems whose AI trial still waits for the client — oversight, not approval.
     if (is("GET", "moderator", "scopes"))
       return db.jobs
-        .filter((j) => j.status === "SCOPING" && !j.scopeApproved)
+        .filter((j) => j.status === "SCOPING")
         .sort((x, y) => x.createdAt.localeCompare(y.createdAt))
         .map((j) => jobFull(db, j));
     if (is("POST", "moderator", "scopes", null, "approve")) {
       const j = db.jobs.find((x) => x.id === a2) ?? fail(404, "Job not found");
-      if (j.scopeApproved) fail(409, "Scope already released");
+      if (j.status === "CANCELLED") fail(409, "This problem was cancelled");
+      const jt = db.tasks.filter((x) => x.jobId === j.id);
+      if ((b.fee || b.hours) && jt.some((t) => t.payment.status !== "AWAITING" || db.attempts.some((x) => x.taskId === t.id)))
+        fail(409, "The price can only change before it is funded and before anyone applies");
       j.scopeApproved = true;
       if (b.summary) j.aiSummary = String(b.summary);
+      // Re-scoping edits the job's AI figures too, exactly as the server does.
+      if (b.hours) j.aiEstHours = Number(b.hours);
+      if (b.fee) {
+        j.aiSuggestedFee = Number(b.fee);
+        j.budget = Number(b.fee);
+      }
       for (const t of db.tasks.filter((x) => x.jobId === j.id)) {
         if (b.fee) {
           t.fee = Number(b.fee);
@@ -679,7 +838,8 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
         if (b.hours) t.hours = Number(b.hours);
         maybeActivate(db, t);
       }
-      return jobFull(db, j);
+      // The server returns the job with its tasks (no client/sector); match that shape.
+      return { ...j, tasks: db.tasks.filter((t) => t.jobId === j.id) };
     }
     if (is("POST", "moderator", "scopes", null, "reject")) {
       const j = db.jobs.find((x) => x.id === a2) ?? fail(404, "Job not found");
@@ -691,19 +851,22 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
       }
       return { rejected: true, reason: b.reason };
     }
+    // Only the AI shortlist (90%+ completion) reaches the moderator, in rank order.
     if (is("GET", "moderator", "select"))
       return db.tasks
-        .filter((t) => t.status === "MATCHING" && db.attempts.some((x) => x.taskId === t.id))
+        .filter((t) => t.status === "MATCHING" && db.attempts.some((x) => x.taskId === t.id && x.outcome === "SHORTLISTED"))
         .sort((x, y) => y.updatedAt.localeCompare(x.updatedAt))
         .map((t) => {
           const j = jobOf(db, t);
+          const all = db.attempts.filter((x) => x.taskId === t.id);
+          const shortlist = all.filter((x) => x.outcome === "SHORTLISTED").sort((x, y) => (x.rank ?? 99) - (y.rank ?? 99));
           return {
             ...t,
             job: { ...j, client: mini(db, j.clientId) },
-            attempts: db.attempts
-              .filter((x) => x.taskId === t.id)
-              .sort((x, y) => y.aiScore - x.aiScore)
-              .map((x) => ({ ...x, student: mini(db, x.studentId) })),
+            attempts: shortlist.map((x) => ({ ...x, student: mini(db, x.studentId) })),
+            belowBar: all.length - shortlist.length,
+            bar: SHORTLIST_BAR,
+            funded: t.payment.status === "HELD",
           };
         });
     if (is("POST", "moderator", "tasks", null, "select")) {
@@ -711,6 +874,8 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
       if (t.status !== "MATCHING") fail(409, "This task is not awaiting selection");
       const all = db.attempts.filter((x) => x.taskId === t.id);
       const chosen = all.find((x) => x.studentId === b.studentId) ?? fail(400, "That student did not do this trial");
+      if (chosen.outcome !== "SHORTLISTED") fail(400, `Only students the AI shortlisted (${SHORTLIST_BAR}%+ completion) can be selected`);
+      if (t.payment.status !== "HELD") fail(409, "The client has not funded the escrow yet — a student can be assigned once the fee is held");
       Object.assign(t, { assigneeId: chosen.studentId, status: "IN_PROGRESS" });
       jobOf(db, t).status = "ACTIVE";
       touch(t);
@@ -735,7 +900,7 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
       const t = taskById(db, a2);
       if (!t.assigneeId) fail(400, "No student is assigned to this task");
       if (t.status !== "IN_REVIEW") fail(409, "This task is not awaiting scoring");
-      t.evaluation = { id: `e${++db.seq}`, reviewerId: me, scores: b.scores ?? [], reviewerNote: String(b.note ?? ""), clientSignoff: false, clientNote: null };
+      t.evaluation = { id: `e${++db.seq}`, taskId: t.id, studentId: t.assigneeId, reviewerId: me, scores: b.scores ?? [], reviewerNote: String(b.note ?? ""), clientSignoff: false, clientNote: null };
       touch(t);
       return t.evaluation;
     }
@@ -821,7 +986,11 @@ function route(db: DB, method: string, seg: string[], query: URLSearchParams, b:
     if (is("GET", "moderator", "controls"))
       return {
         rateFloors: RATE_FLOOR,
+        shortlistBar: SHORTLIST_BAR,
         rules: [
+          { key: "noPostApproval", label: "Posted problems are stored at once — the client approves the AI's trial", locked: true },
+          { key: "shortlistBar", label: `AI sends only trial attempts with ${SHORTLIST_BAR}%+ completion to the moderator`, locked: true },
+          { key: "fundedBeforeSelection", label: "A student is assigned only once the escrow is funded", locked: true },
           { key: "fairPriceFloor", label: "Fair-price floor (per sector)", locked: true },
           { key: "escrowReleaseOnSignoff", label: "Escrow releases only on client sign-off", locked: true },
           { key: "verifyBeforeTrial", label: "Students must be verified before a trial", locked: true },

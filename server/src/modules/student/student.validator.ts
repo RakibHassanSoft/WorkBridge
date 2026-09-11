@@ -2,6 +2,27 @@ import { z } from "zod";
 
 const taskIdParam = z.object({ taskId: z.string().min(1) });
 
+// Uploaded deliverable: metadata + extracted text (no binary). A folder carries
+// many files; a single file carries one. Content is capped to keep payloads sane.
+const uploadedFile = z.object({
+  name: z.string().min(1).max(400),
+  mime: z.string().max(200),
+  size: z.number().int().nonnegative(),
+  content: z.string().max(200000).nullable().optional(),
+  // base64 of an image/PDF for the AI judge to look at (stripped before storing)
+  data: z.string().max(16_000_000).nullable().optional(),
+});
+export const attachmentsSchema = z
+  .array(
+    z.object({
+      kind: z.enum(["file", "folder"]),
+      name: z.string().min(1).max(400),
+      files: z.array(uploadedFile).max(500),
+    })
+  )
+  .max(50)
+  .optional();
+
 export const updateProfileSchema = z.object({
   body: z.object({
     university: z.string().optional(),
@@ -39,6 +60,7 @@ export const applySchema = z.object({
   body: z.object({
     summary: z.string().min(10, "Describe what you produced"),
     minutesTaken: z.number().int().positive().max(600),
+    attachments: attachmentsSchema,
   }),
 });
 
@@ -49,7 +71,10 @@ export const progressSchema = z.object({
 
 export const submitWorkSchema = z.object({
   params: taskIdParam,
-  body: z.object({ note: z.string().min(5, "Add a short note on what you delivered") }),
+  body: z.object({
+    note: z.string().min(5, "Add a short note on what you delivered"),
+    files: attachmentsSchema,
+  }),
 });
 
 export const disputeSchema = z.object({

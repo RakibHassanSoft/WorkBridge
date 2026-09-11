@@ -63,7 +63,7 @@ export const studentController = {
   }),
 
   submitWork: catchAsync(async (req: Request, res: Response) => {
-    const t = await studentService.submitWork(uid(req), req.params.taskId, req.body.note);
+    const t = await studentService.submitWork(uid(req), req.params.taskId, req.body.note, req.body.files);
     sendSuccess(res, 200, "Work submitted for review", t);
   }),
 

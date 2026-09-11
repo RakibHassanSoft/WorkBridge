@@ -11,20 +11,23 @@ import {
 } from "@prisma/client";
 import prisma from "@/config/prisma";
 import { AppError } from "@/utils/AppError";
-import { taskService } from "@/modules/task/task.service";
-import { RATE_FLOOR } from "@/modules/ai/ai.engine";
+import { RATE_FLOOR, SHORTLIST_BAR } from "@/modules/ai/ai.engine";
 
 /**
- * Moderator service — the human gate. Every AI decision is a draft until a
- * moderator releases it, and the points rule resolves here at selection:
+ * Moderator service — the human gate at the point that matters: posting needs
+ * no approval (the client checks the AI's trial), the AI judges every trial
+ * upload and sends only attempts with SHORTLIST_BAR (90%)+ completion here, and
+ * the moderator picks the student from that ranked shortlist. The points rule
+ * resolves at selection:
  *   tried, not selected  -> +1
  *   selected             ->  0 (provisional; 0 on delivery, -1 on failure)
  */
 export const moderatorService = {
-  // ── Scope review ──
+  // ── Posted problems (oversight, not approval) ──
+  /** New posts whose AI trial is still waiting for the client's check. Nothing here blocks the client. */
   listScopes() {
     return prisma.job.findMany({
-      where: { status: JobStatus.SCOPING, scopeApproved: false },
+      where: { status: JobStatus.SCOPING },
       orderBy: { createdAt: "asc" },
       include: {
         client: { select: { id: true, name: true } },
@@ -34,16 +37,21 @@ export const moderatorService = {
     });
   },
 
+  /** Optional correction of the AI's price/hours/summary before anyone has applied. */
   async approveScope(
     jobId: string,
     input: { fee?: number; hours?: number; summary?: string; note?: string }
   ) {
     const job = await prisma.job.findUnique({
       where: { id: jobId },
-      include: { tasks: true },
+      include: { tasks: { include: { payment: true, attempts: { select: { id: true } } } } },
     });
     if (!job) throw AppError.notFound("Job not found");
-    if (job.scopeApproved) throw AppError.conflict("Scope already released");
+    if (job.status === JobStatus.CANCELLED) throw AppError.conflict("This problem was cancelled");
+    const task = job.tasks[0];
+    if ((input.fee || input.hours) && task && (task.attempts.length > 0 || task.payment?.status !== PayStatus.AWAITING)) {
+      throw AppError.conflict("The price can only change before it is funded and before anyone applies");
+    }
 
     const ops: Prisma.PrismaPromise<unknown>[] = [
       prisma.job.update({
@@ -56,28 +64,19 @@ export const moderatorService = {
         },
       }),
     ];
-    // A re-price/re-scope edits the single task's numbers too.
-    if (input.fee || input.hours) {
-      const task = job.tasks[0];
-      if (task) {
-        ops.push(
-          prisma.task.update({
-            where: { id: task.id },
-            data: {
-              ...(input.fee ? { fee: input.fee } : {}),
-              ...(input.hours ? { hours: input.hours } : {}),
-            },
-          }),
-          ...(input.fee
-            ? [prisma.payment.update({ where: { taskId: task.id }, data: { amount: input.fee } })]
-            : [])
-        );
-      }
+    if (task && (input.fee || input.hours)) {
+      ops.push(
+        prisma.task.update({
+          where: { id: task.id },
+          data: {
+            ...(input.fee ? { fee: input.fee } : {}),
+            ...(input.hours ? { hours: input.hours } : {}),
+          },
+        }),
+        ...(input.fee ? [prisma.payment.update({ where: { taskId: task.id }, data: { amount: input.fee } })] : [])
+      );
     }
     await prisma.$transaction(ops);
-
-    // Releasing the scope may be the last gate before the task goes live.
-    for (const task of job.tasks) await taskService.maybeActivate(task.id);
     return prisma.job.findUnique({ where: { id: jobId }, include: { tasks: true } });
   },
 
@@ -115,25 +114,41 @@ export const moderatorService = {
   },
 
   // ── Select the student (points resolve here) ──
-  listSelectRounds() {
-    return prisma.task.findMany({
-      where: { status: TaskStatus.MATCHING, attempts: { some: {} } },
+  /**
+   * Live tasks with at least one AI-shortlisted attempt. Only attempts at or
+   * above the bar are returned, in the AI's rank order; `belowBar` counts the
+   * rest so the moderator knows how many were filtered out.
+   */
+  async listSelectRounds() {
+    const tasks = await prisma.task.findMany({
+      where: { status: TaskStatus.MATCHING, attempts: { some: { outcome: TrialOutcome.SHORTLISTED } } },
       orderBy: { updatedAt: "desc" },
       include: {
         job: { include: { client: { select: { id: true, name: true } } } },
         trial: true,
+        payment: true,
         attempts: {
-          orderBy: { aiScore: "desc" },
+          orderBy: [{ rank: "asc" }, { completion: "desc" }, { aiScore: "desc" }],
           include: { student: { select: { id: true, name: true } } },
         },
       },
+    });
+    return tasks.map((t) => {
+      const shortlist = t.attempts.filter((a) => a.outcome === TrialOutcome.SHORTLISTED);
+      return {
+        ...t,
+        attempts: shortlist,
+        belowBar: t.attempts.length - shortlist.length,
+        bar: SHORTLIST_BAR,
+        funded: t.payment?.status === PayStatus.HELD,
+      };
     });
   },
 
   async selectStudent(taskId: string, studentId: string, reason: string) {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      include: { attempts: true },
+      include: { attempts: true, payment: true },
     });
     if (!task) throw AppError.notFound("Task not found");
     if (task.status !== TaskStatus.MATCHING) {
@@ -141,6 +156,12 @@ export const moderatorService = {
     }
     const chosen = task.attempts.find((a) => a.studentId === studentId);
     if (!chosen) throw AppError.badRequest("That student did not do this trial");
+    if (chosen.outcome !== TrialOutcome.SHORTLISTED) {
+      throw AppError.badRequest(`Only students the AI shortlisted (${SHORTLIST_BAR}%+ completion) can be selected`);
+    }
+    if (task.payment?.status !== PayStatus.HELD) {
+      throw AppError.conflict("The client has not funded the escrow yet — a student can be assigned once the fee is held");
+    }
 
     const others = task.attempts.filter((a) => a.studentId !== studentId);
 
@@ -433,7 +454,11 @@ export const moderatorService = {
   controls() {
     return {
       rateFloors: RATE_FLOOR,
+      shortlistBar: SHORTLIST_BAR,
       rules: [
+        { key: "noPostApproval", label: "Posted problems are stored at once — the client approves the AI's trial", locked: true },
+        { key: "shortlistBar", label: `AI sends only trial attempts with ${SHORTLIST_BAR}%+ completion to the moderator`, locked: true },
+        { key: "fundedBeforeSelection", label: "A student is assigned only once the escrow is funded", locked: true },
         { key: "fairPriceFloor", label: "Fair-price floor (per sector)", locked: true },
         { key: "escrowReleaseOnSignoff", label: "Escrow releases only on client sign-off", locked: true },
         { key: "verifyBeforeTrial", label: "Students must be verified before a trial", locked: true },

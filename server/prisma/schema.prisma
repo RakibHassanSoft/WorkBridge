@@ -22,8 +22,8 @@ enum Role {
 
 enum JobStatus {
   DRAFT // client wrote it, AI not run yet
-  SCOPING // AI produced a scope, awaiting moderator scope review
-  MATCHING // approved + funded, trial live, students applying
+  SCOPING // AI produced the scope + trial, awaiting the client's trial check
+  MATCHING // client approved the trial: live on the task board, students applying
   ACTIVE // a student was selected, main task in progress
   REVIEW // work submitted, awaiting scoring / sign-off
   DELIVERED // signed off and paid
@@ -61,9 +61,9 @@ enum TrialCheckStatus {
 }
 
 enum TrialOutcome {
-  PENDING
-  SHORTLISTED
-  NOT_SHORTLISTED
+  PENDING // legacy: submitted before automatic shortlisting
+  SHORTLISTED // AI: completion >= 90% — sent to the moderator
+  NOT_SHORTLISTED // AI: below the bar, or tried and not selected
   SELECTED
 }
 
@@ -110,6 +110,7 @@ model User {
   role      Role
   name      String
   phone     String?
+  avatarUrl String?  // profile photo, stored as a compressed data URL
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,7 +182,7 @@ model Job {
   sector      Sector?   @relation(fields: [sectorId], references: [id])
   budget        Int       @default(0)
   status        JobStatus @default(DRAFT)
-  scopeApproved Boolean   @default(false) // moderator released the AI scope
+  scopeApproved Boolean   @default(false) // AI scope released — automatic at posting (no moderator approval step)
 
   // AI scope (produced by the scoping engine; a draft until a moderator releases it)
   aiSummary      String?
@@ -191,6 +192,7 @@ model Job {
   aiSuggestedFee Int?
   aiRisks        String[] @default([])
   aiSkills       String[] @default([])
+  attachments    Json? // [{ kind, name, files:[{ name, mime, size, content }] }] client-uploaded brief docs
 
   tasks     Task[]
   createdAt DateTime @default(now())
@@ -216,6 +218,7 @@ model Task {
 
   // main-task submission (student -> review)
   submissionNote String?
+  submissionFiles Json? // [{ kind, name, files:[{ name, mime, size, content }] }] uploaded deliverable
   submittedAt    DateTime?
 
   assigneeId String?
@@ -244,8 +247,9 @@ model Trial {
   brief      String
   mirrors    String?
   minutes    Int      @default(30)
-  acceptance String[] @default([])
+  acceptance String[] @default([]) // the requirement checklist the AI judges uploads against
   aiNote     String?
+  revision   Int      @default(1) // bumps each time the AI rebuilds it on the client's request
   createdAt  DateTime @default(now())
 }
 
@@ -268,7 +272,12 @@ model TrialAttempt {
   student       User         @relation(fields: [studentId], references: [id])
   minutesTaken  Int          @default(0)
   summary       String?
-  aiScore       Int          @default(0) // 0..100
+  attachments   Json? // [{ kind, name, files:[{ name, mime, size, content }] }] trial deliverable the AI judged
+  aiScore       Int          @default(0) // 0..100 quality
+  completion    Int          @default(0) // 0..100 share of the trial's requirements delivered
+  checklist     Json? // [{ requirement, status: met|partial|missing, evidence }]
+  aiFlags       String[]     @default([]) // integrity problems found in the upload
+  aiSource      String? // "model" (Gemini) or "engine" (deterministic)
   aiVerdict     String? // public reasoning
   aiCoaching    String? // private, student-only
   rank          Int          @default(0)

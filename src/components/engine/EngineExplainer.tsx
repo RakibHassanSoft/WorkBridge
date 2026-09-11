@@ -26,7 +26,7 @@ const DOES = {
 const DOESNT = {
   en: [
     "Decide who gets the work — a coordinator approves every shortlist",
-    "Release a scope to a client or a student without human approval",
+    "Put a task live before the client has approved its trial",
     "Score delivered work, or contribute to a verification decision in any way",
     "Run at all before 20–30 real completed projects exist as calibration data",
     "Judge a student on activity metrics, commits, or anything that can be gamed",
@@ -34,7 +34,7 @@ const DOESNT = {
   ],
   bn: [
     "কে কাজ পাবে তা ঠিক করে না — প্রতিটি শর্টলিস্ট কোঅর্ডিনেটর অনুমোদন করেন",
-    "মানুষের অনুমোদন ছাড়া ক্লায়েন্ট বা শিক্ষার্থীর কাছে কোনো স্কোপ ছাড়ে না",
+    "ক্লায়েন্ট ট্রায়াল অনুমোদনের আগে কোনো টাস্ক লাইভ করে না",
     "ডেলিভার করা কাজ মূল্যায়ন করে না, ভেরিফিকেশন সিদ্ধান্তে কোনোভাবেই অংশ নেয় না",
     "২০–৩০টি বাস্তব সম্পন্ন প্রজেক্ট ক্যালিব্রেশন ডেটা হিসেবে না থাকা পর্যন্ত চলে না",
     "অ্যাক্টিভিটি মেট্রিক, কমিট বা গেম করা যায় এমন কিছু দিয়ে শিক্ষার্থীকে বিচার করে না",

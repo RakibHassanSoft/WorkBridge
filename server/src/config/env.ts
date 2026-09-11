@@ -35,5 +35,7 @@ export const env = {
   // Gemini (optional). When unset, the AI layer falls back to the
   // deterministic engine so the app works with no key.
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
+  // A value that is not a model id (e.g. a label pasted by mistake) would make
+  // every call 404 and silently fall back to the engine — use the default then.
+  geminiModel: /^gemini-[\w.-]+$/.test(process.env.GEMINI_MODEL ?? "") ? (process.env.GEMINI_MODEL as string) : "gemini-3.6-flash",
 };

@@ -17,8 +17,8 @@ npm run seed        # wipes, then fills the database with the accounts below
 | Business | Email | Notes |
 | --- | --- | --- |
 | Nokshi Threads | `nokshi@demo.wb` | Has a delivered job, an active job, a matching job, and an open board task; payment methods (bKash, bank) |
-| Chaap Ghor | `chaap@demo.wb` | Has a job awaiting scope review, a job in review, and an open dispute; Nagad payment method |
-| Shopno Agro | `shopno@demo.wb` | Has a delivered job and a job awaiting scope review; bank payment method |
+| Chaap Ghor | `chaap@demo.wb` | Has a posted job whose AI trial awaits their check, a job in review, and an open dispute; Nagad payment method |
+| Shopno Agro | `shopno@demo.wb` | Has a delivered job and a posted job whose AI trial awaits their check; bank payment method |
 
 ## Moderators (2)
 
@@ -27,7 +27,7 @@ npm run seed        # wipes, then fills the database with the accounts below
 | Sabbir Rahman | `mod@demo.wb` | Platform coordinator |
 | Rima Chowdhury | `mod2@demo.wb` | Platform coordinator |
 
-Moderator queues after seeding: scope reviews, a selection round, work to score, a KYC queue (2 students), an open dispute, and support tickets.
+Moderator queues after seeding: an AI shortlist to select from (packaging label — 2 students at 90%+, 1 kept back below the bar), new posts (oversight only), work to score, a KYC queue (2 students), an open dispute, and support tickets.
 
 ## Students (5)
 

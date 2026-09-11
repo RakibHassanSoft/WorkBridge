@@ -1,14 +1,11 @@
-import { JobStatus, PayStatus, TaskStatus, TrialCheckStatus } from "@prisma/client";
+import { JobStatus, TaskStatus, TrialCheckStatus } from "@prisma/client";
 import prisma from "@/config/prisma";
 
 /**
- * Shared task lifecycle. A task goes live on the board (MATCHING) only when all
- * three gates are cleared:
- *   1. the moderator has released the AI scope (job.scopeApproved)
- *   2. the client has approved the trial (trialCheck APPROVED)
- *   3. the escrow is funded (payment HELD)
- * Any of the client, or the moderator, can be the last to clear a gate, so each
- * of their actions calls this to check whether the task can now go live.
+ * Shared task lifecycle. Posting needs no approval: a task goes live on the
+ * board (MATCHING) as soon as the CLIENT approves the AI-built trial. Escrow is
+ * not a gate for going live — it is a gate for SELECTION (the moderator cannot
+ * assign a student until the fee is held), so no student starts unfunded work.
  */
 export const taskService = {
   async maybeActivate(taskId: string) {
@@ -20,9 +17,8 @@ export const taskService = {
 
     const ready =
       task.status === TaskStatus.OPEN &&
-      task.job.scopeApproved &&
-      task.trialCheck?.status === TrialCheckStatus.APPROVED &&
-      task.payment?.status === PayStatus.HELD;
+      task.job.status !== JobStatus.CANCELLED &&
+      task.trialCheck?.status === TrialCheckStatus.APPROVED;
 
     if (!ready) return task;
 

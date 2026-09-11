@@ -12,6 +12,7 @@ export const publicUserSelect = {
   role: true,
   name: true,
   phone: true,
+  avatarUrl: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
@@ -19,7 +20,7 @@ export const publicUserSelect = {
 
 export type PublicUser = Pick<
   User,
-  "id" | "email" | "role" | "name" | "phone" | "isActive" | "createdAt" | "updatedAt"
+  "id" | "email" | "role" | "name" | "phone" | "avatarUrl" | "isActive" | "createdAt" | "updatedAt"
 >;
 
 export interface CreateUserInput {

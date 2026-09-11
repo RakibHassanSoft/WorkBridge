@@ -10,7 +10,7 @@ import { T, useLang, type L } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import type { Role } from "@/lib/api";
 import { DEMO_ROLES, demoHome } from "@/lib/demo/session";
-import { useDemo } from "@/lib/workspace";
+import { useDemo, useWorkspaceUser } from "@/lib/workspace";
 import { cn } from "@/lib/cn";
 
 export type NavItem = { key: string; label: L; icon: LucideIcon; badge?: number };
@@ -52,6 +52,7 @@ export default function AppShell({
   const { logout } = useAuth();
   // Only set on the public /demo/* routes — a real workspace never shows demo controls.
   const demo = useDemo();
+  const wsUser = useWorkspaceUser();
   const router = useRouter();
 
   const signOut = () => {
@@ -99,7 +100,7 @@ export default function AppShell({
               onClick={() => setRoleOpen((v) => !v)}
               className="flex w-full items-center gap-3 rounded-[12px] border border-line bg-canvas-2/60 p-2.5 text-left transition-colors hover:bg-canvas-2"
             >
-              <Avatar name={userName} size={34} />
+              <Avatar name={userName} src={wsUser?.avatarUrl} size={34} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-medium text-ink">{userName}</span>
                 <span className="block truncate text-[11px] text-ink-4">{t(userMeta)}</span>

@@ -36,14 +36,14 @@ const TIERS = [
     line: { en: "A real problem, priced and scoped by the AI layer.", bn: "একটি বাস্তব সমস্যা, এআই লেয়ার দিয়ে দাম ও পরিধি ঠিক করা।" },
     features: {
       en: [
-        "AI scope reviewed by a human coordinator",
+        "AI-built trial you approve; AI checks every applicant's files",
         "Task-by-task pricing, approve what you want",
         "Coordinator sign-off on every milestone",
         "Direct connection to the graduate afterwards",
         "Revisions recorded, not quietly redone",
       ],
       bn: [
-        "human coordinator-রিভিউড এআই স্কোপ",
+        "আপনার অনুমোদিত এআই ট্রায়াল; এআই প্রতিটি আবেদনকারীর ফাইল যাচাই করে",
         "টাস্কভিত্তিক দাম, যা চান তাই অনুমোদন করুন",
         "প্রতিটি মাইলফলকে কোঅর্ডিনেটরের সাইন-অফ",
         "পরে গ্র্যাজুয়েটের সাথে সরাসরি সংযোগ",

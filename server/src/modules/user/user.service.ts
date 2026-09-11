@@ -76,6 +76,10 @@ export const userService = {
     return prisma.user.create({ data, select: publicUserSelect });
   },
 
+  setAvatar(id: string, avatarUrl: string): Promise<PublicUser> {
+    return prisma.user.update({ where: { id }, data: { avatarUrl }, select: publicUserSelect });
+  },
+
   async setActive(id: string, isActive: boolean): Promise<PublicUser> {
     return prisma.user.update({
       where: { id },

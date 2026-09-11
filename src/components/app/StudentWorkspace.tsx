@@ -21,10 +21,11 @@ import {
 } from "lucide-react";
 import AppShell, { type NavItem } from "./AppShell";
 import TaskChat from "./TaskChat";
+import ProfilePhotoCard from "./ProfilePhoto";
 import SupportPanel from "./SupportPanel";
-import { EmptyState, Fact, LoadingRows, Notice, Panel, StatCard, StatusBadge, WelcomeBanner, inputCls, taka, useAction, when } from "./parts";
+import { AttachmentList, AttachmentPicker, AttemptBadge, Checklist, EmptyState, Fact, LoadingRows, Notice, Panel, SHORTLIST_BAR, StatCard, StatusBadge, WelcomeBanner, inputCls, taka, useAction, when, type ChecklistRow } from "./parts";
 import { Bar, Button } from "@/components/ui";
-import { ApiError } from "@/lib/api";
+import { ApiError, type Attachment } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { L } from "@/lib/i18n";
 import { useApi, useWorkspaceUser } from "@/lib/workspace";
@@ -47,6 +48,7 @@ type Task = {
   applied?: boolean;
   progress?: number;
   submissionNote?: string | null;
+  submissionFiles?: Attachment[] | null;
   updatedAt?: string;
   createdAt?: string;
   sector?: Sector;
@@ -55,7 +57,23 @@ type Task = {
   payment?: { status: string } | null;
   evaluation?: { scores: { dim: string; score: number; max: number }[]; reviewerNote?: string | null; clientSignoff: boolean; clientNote?: string | null } | null;
 };
-type Attempt = { id: string; aiScore: number; aiVerdict?: string; aiCoaching?: string; outcome: string; points: number; pointsReason?: string | null; minutesTaken: number; submittedAt: string; task?: { id: string; title: string; status: string } | null };
+type Attempt = {
+  id: string;
+  aiScore: number;
+  completion?: number;
+  checklist?: ChecklistRow[] | null;
+  aiFlags?: string[];
+  rank?: number | null;
+  aiVerdict?: string;
+  aiCoaching?: string;
+  outcome: string;
+  points: number;
+  pointsReason?: string | null;
+  minutesTaken: number;
+  submittedAt: string;
+  attachments?: Attachment[];
+  task?: { id: string; title: string; status: string } | null;
+};
 type PointEntry = { id: string; delta: number; reason: string; createdAt: string; task?: { title: string } | null };
 type Kyc = { status: string; submission?: { status: string; note?: string | null; documents?: { label: string; detail: string; ok: boolean }[]; createdAt?: string } | null };
 type Earnings = { total: number; payments: { id?: string; amount: number; updatedAt?: string; task?: { title: string } | null }[] };
@@ -129,7 +147,8 @@ export default function StudentWorkspace() {
 
   const verified = kyc?.status === "VERIFIED";
   const openToApply = tasks.filter((t) => !t.applied).length;
-  const pending = trials.filter((a) => a.outcome === "PENDING").length;
+  // Attempts the AI shortlisted that a coordinator has not decided yet.
+  const pending = trials.filter((a) => a.outcome === "SHORTLISTED" || a.outcome === "PENDING").length;
   const nav = NAV_BASE.map((n) =>
     n.key === "find" ? { ...n, badge: openToApply || undefined } : n.key === "active" ? { ...n, badge: activeTasks.length || undefined } : n
   );
@@ -238,7 +257,7 @@ function Overview({
       </WelcomeBanner>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={BadgeCheck} label={L("Verification")} value={verified ? "Verified" : "Not yet"} hint={L(verified ? "you can apply to tasks" : "needed before a trial")} tone={verified ? "brand" : "default"} />
-        <StatCard icon={Star} label={L("Points")} value={String(points)} hint={L(pending ? `${pending} trial${pending === 1 ? "" : "s"} awaiting selection` : "+1 for every trial you try")} />
+        <StatCard icon={Star} label={L("Points")} value={String(points)} hint={L(pending ? `${pending} shortlisted trial${pending === 1 ? "" : "s"} with a coordinator` : "+1 for every trial you try")} />
         <StatCard icon={ClipboardList} label={L("Active work")} value={String(active.length)} hint={L("tasks you were selected for")} />
         <StatCard icon={Banknote} label={L("Earned")} value={taka(earned)} hint={L("released to you")} tone="ink" />
       </div>
@@ -272,7 +291,7 @@ function Overview({
                     <p className="truncate text-[13.5px] font-medium text-ink">{tk.title}</p>
                     <p className="mt-0.5 text-[12px] text-ink-4">{tk.sector?.name ?? "—"} · {taka(tk.fee)} · {tk.hours}h</p>
                   </div>
-                  {tk.applied ? <StatusBadge status="PENDING" /> : <span className="shrink-0 text-[12px] text-ink-4">{tk.trial?.minutes ?? 30} min trial</span>}
+                  {tk.applied ? <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">Applied</span> : <span className="shrink-0 text-[12px] text-ink-4">{tk.trial?.minutes ?? 30} min trial</span>}
                 </li>
               ))}
             </ul>
@@ -324,8 +343,14 @@ function TaskApply({ task, verified, onChange }: { task: Task; verified: boolean
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState("");
   const [mins, setMins] = useState("");
+  const [files, setFiles] = useState<Attachment[]>([]);
+  const [result, setResult] = useState<Attempt | null>(null);
   const { busy, err, run } = useAction(onChange);
   const minutes = Number(mins) || task.trial?.minutes || 30;
+  const submit = () =>
+    run(async () => {
+      setResult((await api.student.apply(task.id, summary.trim(), Math.min(600, minutes), files)) as Attempt);
+    });
 
   return (
     <section className="overflow-hidden rounded-[16px] border border-line bg-white">
@@ -334,7 +359,7 @@ function TaskApply({ task, verified, onChange }: { task: Task; verified: boolean
           <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-ink">{task.title}</h2>
           <p className="mt-0.5 text-[12px] text-ink-4">{task.job?.ref} · {task.sector?.name ?? "—"} · posted {when(task.createdAt)}</p>
         </div>
-        {task.applied ? <StatusBadge status="PENDING" /> : <StatusBadge status={task.status} />}
+        {task.applied ? <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">Applied</span> : <StatusBadge status={task.status} />}
       </div>
       <div className="space-y-4 p-5">
         <p className="text-[13.5px] leading-relaxed text-ink-3">{task.desc}</p>
@@ -358,19 +383,36 @@ function TaskApply({ task, verified, onChange }: { task: Task; verified: boolean
             <p className="mt-1.5 text-[13.5px] font-medium text-ink">{task.trial.title}</p>
             <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{task.trial.brief}</p>
             {!!task.trial.acceptance?.length && (
-              <ul className="mt-3 space-y-1.5">
-                {task.trial.acceptance.map((a) => (
-                  <li key={a} className="flex items-start gap-2 text-[12.5px] text-ink-2">
-                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-brand-500" /> {a}
-                  </li>
-                ))}
-              </ul>
+              <>
+                <p className="mt-3 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-4">The AI checks each of these in your files</p>
+                <ul className="mt-1.5 space-y-1.5">
+                  {task.trial.acceptance.map((a) => (
+                    <li key={a} className="flex items-start gap-2 text-[12.5px] text-ink-2">
+                      <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-brand-500" /> {a}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[11.5px] text-ink-4">Reach {SHORTLIST_BAR}% completion and the AI sends your trial to a coordinator, ranked against the others.</p>
+              </>
             )}
           </div>
         )}
 
-        {task.applied ? (
-          <Notice tone="success">Trial submitted. The AI has scored it and a coordinator will choose from the ranking — see Trials &amp; points.</Notice>
+        {result ? (
+          <div className={cn("space-y-3 rounded-[14px] border p-4", result.outcome === "SHORTLISTED" ? "border-brand-200 bg-brand-50/40" : "border-warn/25 bg-warn-bg/40")}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[13px] font-medium text-ink">
+                {result.outcome === "SHORTLISTED"
+                  ? `Shortlisted${result.rank ? ` — ranked #${result.rank}` : ""}. Your trial is with a coordinator.`
+                  : `Below the ${SHORTLIST_BAR}% bar — this trial will not reach a coordinator.`}
+              </p>
+              <AttemptBadge a={result} />
+            </div>
+            <Checklist completion={result.completion ?? 0} rows={result.checklist} flags={result.aiFlags} />
+            {result.aiCoaching && <p className="rounded-[10px] bg-white px-3 py-2 text-[12px] leading-relaxed text-ink-3"><span className="font-medium text-ink-2">Coaching (only you see this): </span>{result.aiCoaching}</p>}
+          </div>
+        ) : task.applied ? (
+          <Notice tone="success">Trial submitted and checked by the AI — see your completion and checklist in Trials &amp; points.</Notice>
         ) : !verified ? (
           <p className="text-[12.5px] text-warn">Verify your account to apply to this task.</p>
         ) : !open ? (
@@ -387,6 +429,11 @@ function TaskApply({ task, verified, onChange }: { task: Task; verified: boolean
                 className={cn(inputCls, "resize-none leading-relaxed")}
               />
             </label>
+            <div>
+              <span className="mb-1.5 block text-[12.5px] font-medium text-ink-2">Upload what you produced <span className="font-normal text-ink-4">— the AI checks every requirement against these files (images and PDFs too)</span></span>
+              <AttachmentPicker value={files} onChange={setFiles} />
+              {files.length === 0 && <p className="mt-1.5 text-[11.5px] text-warn">Without files a trial cannot reach {SHORTLIST_BAR}% — describing the work is not the work.</p>}
+            </div>
             <div className="flex flex-wrap items-end gap-3">
               <label className="block">
                 <span className="mb-1.5 block text-[12.5px] font-medium text-ink-2">Minutes taken</span>
@@ -398,13 +445,13 @@ function TaskApply({ task, verified, onChange }: { task: Task; verified: boolean
                   className={cn(inputCls, "w-32")}
                 />
               </label>
-              <Button onClick={() => run(() => api.student.apply(task.id, summary.trim(), Math.min(600, minutes)))} disabled={busy || summary.trim().length < 10} icon={<Send className="size-4" />}>
-                {busy ? "Submitting…" : "Submit trial"}
+              <Button onClick={submit} disabled={busy || summary.trim().length < 10} icon={<Send className="size-4" />}>
+                {busy ? "The AI is checking your files…" : "Submit trial"}
               </Button>
               <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             </div>
             <p className="text-[11.5px] text-ink-4">
-              {summary.trim().length < 10 ? "Write at least a sentence. " : ""}The AI rewards flagging what the brief left unclear.
+              {summary.trim().length < 10 ? "Write at least a sentence. " : ""}One attempt per task. The AI rewards flagging what the brief left unclear instead of guessing.
             </p>
             {err && <Notice tone="error">{err}</Notice>}
           </div>
@@ -422,10 +469,10 @@ function Trials({ trials, points }: { trials: Attempt[]; points: { total: number
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard icon={Star} label={L("Points balance")} value={String(points.total)} hint={L("+1 tried · 0 selected · −1 not delivered")} tone="brand" />
         <StatCard icon={ClipboardCheck} label={L("Trials done")} value={String(trials.length)} hint={L("applications by trial")} />
-        <StatCard icon={TrendingUp} label={L("Average AI score")} value={trials.length ? `${Math.round(trials.reduce((s, a) => s + a.aiScore, 0) / trials.length)}` : "—"} hint={L("out of 100")} />
+        <StatCard icon={TrendingUp} label={L("Shortlisted")} value={trials.length ? `${trials.filter((a) => (a.completion ?? 0) >= SHORTLIST_BAR || a.outcome === "SELECTED").length}/${trials.length}` : "—"} hint={L(`reached the ${SHORTLIST_BAR}% bar`)} />
       </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <Panel title={L("Your trials")} desc={L("The AI's score, and what to do better next time")}>
+        <Panel title={L("Your trials")} desc={L(`What the AI found in your files, and what to do better next time`)}>
           {trials.length === 0 ? (
             <div className="p-5"><EmptyState icon={ClipboardCheck} title="No trials yet" text="Find a task and apply by doing its short trial." /></div>
           ) : (
@@ -434,14 +481,20 @@ function Trials({ trials, points }: { trials: Attempt[]; points: { total: number
                 <li key={a.id} className="space-y-2.5 px-5 py-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-[13.5px] font-medium text-ink">{a.task?.title ?? "Task"}</p>
-                    <StatusBadge status={a.outcome} />
+                    <AttemptBadge a={a} />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1"><Bar value={a.aiScore} /></div>
-                    <span className="num text-[12.5px] font-semibold text-ink">{a.aiScore}/100</span>
-                  </div>
+                  {typeof a.completion === "number" && (a.checklist?.length ?? 0) > 0 ? (
+                    <Checklist completion={a.completion} rows={a.checklist} flags={a.aiFlags} />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1"><Bar value={a.aiScore} /></div>
+                      <span className="num text-[12.5px] font-semibold text-ink">{a.aiScore}/100</span>
+                    </div>
+                  )}
+                  <p className="text-[11.5px] text-ink-4">Quality score {a.aiScore}/100</p>
                   {a.aiVerdict && <p className="text-[12.5px] leading-relaxed text-ink-3">{a.aiVerdict}</p>}
                   {a.aiCoaching && <p className="rounded-[10px] bg-canvas-2 px-3 py-2 text-[12px] leading-relaxed text-ink-3"><span className="font-medium text-ink-2">Coaching: </span>{a.aiCoaching}</p>}
+                  {!!a.attachments?.length && <AttachmentList attachments={a.attachments} />}
                   <p className="text-[11.5px] text-ink-4">{a.minutesTaken} min · {when(a.submittedAt)}</p>
                 </li>
               ))}
@@ -496,6 +549,7 @@ function Active({ tasks, onChange, onFind }: { tasks: Task[]; onChange: () => vo
 function ActiveCard({ task, onChange }: { task: Task; onChange: () => void }) {
   const api = useApi();
   const [note, setNote] = useState(task.submissionNote ?? "");
+  const [files, setFiles] = useState<Attachment[]>([]);
   const [prog, setProg] = useState(task.progress ?? 0);
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [claim, setClaim] = useState("");
@@ -570,14 +624,19 @@ function ActiveCard({ task, onChange }: { task: Task; onChange: () => void }) {
             <Notice tone="info">
               Submitted {when(task.updatedAt)} — waiting for a coordinator&apos;s score and the client&apos;s sign-off.
               {task.submissionNote && <span className="mt-1 block text-ink-3">&ldquo;{task.submissionNote}&rdquo;</span>}
+              {!!task.submissionFiles?.length && <div className="mt-2"><AttachmentList attachments={task.submissionFiles} /></div>}
             </Notice>
           ) : (
             <div className="space-y-2.5 rounded-[14px] border border-line p-4">
               <label className="block">
                 <span className="mb-1.5 block text-[12.5px] font-medium text-ink-2">Deliver the work</span>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="What are you delivering? Links, files, and anything the client should check." className={cn(inputCls, "resize-none leading-relaxed")} />
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="What are you delivering? Anything the client and coordinator should check." className={cn(inputCls, "resize-none leading-relaxed")} />
               </label>
-              <Button disabled={submit.busy || note.trim().length < 5} onClick={() => submit.run(() => api.student.submit(task.id, note.trim()))} icon={<Send className="size-4" />}>
+              <div>
+                <span className="mb-1.5 block text-[12.5px] font-medium text-ink-2">Upload the deliverable <span className="font-normal text-ink-4">— files</span></span>
+                <AttachmentPicker value={files} onChange={setFiles} />
+              </div>
+              <Button disabled={submit.busy || note.trim().length < 5} onClick={() => submit.run(() => api.student.submit(task.id, note.trim(), files))} icon={<Send className="size-4" />}>
                 {submit.busy ? "Submitting…" : "Submit for review"}
               </Button>
               {submit.err && <Notice tone="error">{submit.err}</Notice>}
@@ -692,10 +751,14 @@ function EarningsView({ earnings }: { earnings: Earnings }) {
 const DOC_LABELS = ["Recommendation letter", "Student ID card", "Transcript / certificate", "NID", "Payout account"];
 
 function Account({ kyc, onChange }: { kyc: Kyc | null; onChange: () => void }) {
+  const user = useWorkspaceUser();
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <ProfileForm />
-      <Verification kyc={kyc} onChange={onChange} />
+    <div className="space-y-6">
+      <ProfilePhotoCard name={user?.name ?? "You"} currentUrl={user?.avatarUrl} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ProfileForm />
+        <Verification kyc={kyc} onChange={onChange} />
+      </div>
     </div>
   );
 }

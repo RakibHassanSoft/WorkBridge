@@ -7,12 +7,15 @@ import {
   PayStatus,
   DisputeParty,
   DisputeStatus,
+  Prisma,
 } from "@prisma/client";
 import prisma from "@/config/prisma";
 import { AppError } from "@/utils/AppError";
 import { aiService } from "@/modules/ai/ai.service";
 import { genRef } from "@/utils/ref";
 import { boardTaskInclude, KycDoc } from "./student.model";
+import { Attachment, stripBinary, summarizeAttachments } from "@/modules/ai/attachments";
+import { rankAttempts, SHORTLIST_BAR } from "@/modules/ai/ai.judge";
 
 /**
  * Student service — everything the student role does.
@@ -20,8 +23,11 @@ import { boardTaskInclude, KycDoc } from "./student.model";
  *  - A student must be VERIFIED (KYC) before applying to any trial.
  *  - Applying == doing the trial: one attempt per task, task must be live
  *    (MATCHING) with an APPROVED trial-check.
+ *  - The AI judges the uploaded files requirement by requirement. An attempt
+ *    that reaches SHORTLIST_BAR (90%) completion is SHORTLISTED and sent to the
+ *    moderator, ranked by completion then quality; below the bar it is not.
  *  - Points are NOT awarded at apply time; the +1/0/-1 resolves at selection
- *    (Phase 4, moderator) and delivery/sign-off (Phase 2, client).
+ *    (moderator) and delivery/sign-off (client).
  */
 export const studentService = {
   async profile(studentId: string) {
@@ -135,7 +141,7 @@ export const studentService = {
   async applyToTrial(
     studentId: string,
     taskId: string,
-    input: { summary: string; minutesTaken: number }
+    input: { summary: string; minutesTaken: number; attachments?: Attachment[] }
   ) {
     if (!(await this.isVerified(studentId))) {
       throw AppError.forbidden(
@@ -157,28 +163,72 @@ export const studentService = {
     });
     if (already) throw AppError.conflict("You have already applied to this task");
 
+    // Other students' work on this task, so a copied upload is caught.
+    const peerRows = await prisma.trialAttempt.findMany({ where: { taskId }, select: { attachments: true } });
+    const peers = peerRows.map((p) => summarizeAttachments(p.attachments as unknown as Attachment[] | null).text).filter(Boolean);
+
     const evaluation = await aiService.evaluateAttempt({
       trialTitle: task.trial.title,
       trialBrief: task.trial.brief,
-      trialMirrors: task.trial.mirrors ?? "",
+      requirements: task.trial.acceptance ?? [],
       trialMinutes: task.trial.minutes,
       summary: input.summary,
       minutesTaken: input.minutesTaken,
+      attachments: input.attachments,
+      taskAcceptance: task.acceptance ?? [],
+      peers,
     });
 
-    return prisma.trialAttempt.create({
+    const attempt = await prisma.trialAttempt.create({
       data: {
         taskId,
         studentId,
         summary: input.summary,
         minutesTaken: input.minutesTaken,
+        // base64 image/PDF data was for the judge only — never stored
+        attachments: input.attachments
+          ? (stripBinary(input.attachments) as unknown as Prisma.InputJsonValue)
+          : undefined,
         aiScore: evaluation.score,
+        completion: evaluation.completion,
+        checklist: evaluation.checklist as unknown as Prisma.InputJsonValue,
+        aiFlags: evaluation.flags,
+        aiSource: evaluation.source,
         aiVerdict: evaluation.verdict,
         aiCoaching: evaluation.coaching,
-        outcome: TrialOutcome.PENDING,
+        outcome: evaluation.shortlisted ? TrialOutcome.SHORTLISTED : TrialOutcome.NOT_SHORTLISTED,
         points: 0,
       },
     });
+
+    const rank = await this.rerankShortlist(taskId, attempt.id);
+    return {
+      ...attempt,
+      rank: rank ?? 0,
+      shortlisted: evaluation.shortlisted,
+      bar: SHORTLIST_BAR,
+      breakdown: evaluation.breakdown,
+    };
+  },
+
+  /**
+   * Re-rank the task's shortlist (completion, then quality, then first to
+   * finish) so the moderator always sees the AI's current order. Returns the
+   * given attempt's rank, or null if it is not shortlisted.
+   */
+  async rerankShortlist(taskId: string, attemptId?: string): Promise<number | null> {
+    const list = await prisma.trialAttempt.findMany({
+      where: { taskId, outcome: TrialOutcome.SHORTLISTED },
+      select: { id: true, completion: true, aiScore: true, submittedAt: true },
+    });
+    const ranked = rankAttempts<{ id: string; completion: number; aiScore: number; submittedAt: Date }>(list);
+    if (ranked.length) {
+      await prisma.$transaction(
+        ranked.map((a, i) => prisma.trialAttempt.update({ where: { id: a.id }, data: { rank: i + 1 } }))
+      );
+    }
+    const idx = attemptId ? ranked.findIndex((a) => a.id === attemptId) : -1;
+    return idx >= 0 ? idx + 1 : null;
   },
 
   // ── My trials & points ──
@@ -232,7 +282,7 @@ export const studentService = {
   },
 
   /** Submit the finished main task; moves it to review for scoring + sign-off. */
-  async submitWork(studentId: string, taskId: string, note: string) {
+  async submitWork(studentId: string, taskId: string, note: string, files?: Attachment[]) {
     const task = await this.ownedActiveTask(studentId, taskId);
     if (task.status !== TaskStatus.IN_PROGRESS && task.status !== TaskStatus.REVISION) {
       throw AppError.badRequest("This task is not in a state you can submit");
@@ -243,6 +293,7 @@ export const studentService = {
         status: TaskStatus.IN_REVIEW,
         progress: 100,
         submissionNote: note,
+        submissionFiles: files ? (stripBinary(files) as unknown as Prisma.InputJsonValue) : undefined,
         submittedAt: new Date(),
       },
     });

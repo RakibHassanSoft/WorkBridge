@@ -13,4 +13,9 @@ export const userController = {
     const user = await userService.findById(req.user!.sub);
     sendSuccess(res, 200, "Current user", user);
   }),
+
+  setAvatar: catchAsync(async (req: Request, res: Response) => {
+    const user = await userService.setAvatar(req.user!.sub, req.body.avatarUrl);
+    sendSuccess(res, 200, "Photo updated", user);
+  }),
 };
