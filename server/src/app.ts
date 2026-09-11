@@ -26,6 +26,13 @@ export function createApp(): Application {
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
   if (env.nodeEnv !== "test") app.use(morgan("dev"));
 
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "WorkBridge server is running 🚀",
+  });
+});
+
   app.use("/api/v1", routes);
 
   app.use(notFoundHandler);
